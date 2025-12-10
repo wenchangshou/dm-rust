@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dm-rust
+  labels:
+    app: dm-rust
+spec:
+  type: ClusterIP
+  ports:
+    - port: 18080
+      targetPort: 18080
+      protocol: TCP
+      name: http
+  selector:
+    app: dm-rust
+---
+# NodePort Service - 用于集群外部访问
+apiVersion: v1
+kind: Service
+metadata:
+  name: dm-rust-nodeport
+  labels:
+    app: dm-rust
+spec:
+  type: NodePort
+  ports:
+    - port: 18080
+      targetPort: 18080
+      nodePort: 31080
+      protocol: TCP
+      name: http
+  selector:
+    app: dm-rust

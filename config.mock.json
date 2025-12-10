@@ -1,0 +1,147 @@
+{
+  "web_server": {
+    "port": 18080
+  },
+  "channels": [
+    {
+      "enable": true,
+      "channel_id": 1,
+      "statute": "mock",
+      "description": "模拟设备 - 基础配置",
+      "arguments": {
+        "delay_ms": 50,
+        "error_rate": 0.0,
+        "initial_values": {
+          "1": 100,
+          "2": 200,
+          "10": 1,
+          "11": 0,
+          "100": 12345
+        }
+      }
+    },
+    {
+      "enable": true,
+      "channel_id": 2,
+      "statute": "mock",
+      "description": "模拟设备 - 带延迟和错误率",
+      "arguments": {
+        "delay_ms": 200,
+        "error_rate": 0.1,
+        "initial_values": {
+          "1": 50,
+          "2": 75
+        }
+      }
+    },
+    {
+      "enable": true,
+      "channel_id": 3,
+      "statute": "mock",
+      "description": "模拟设备 - 快速响应",
+      "arguments": {
+        "delay_ms": 0,
+        "error_rate": 0.0
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "category": "light",
+      "alias": "模拟灯光1"
+    },
+    {
+      "global_id": 2,
+      "channel_id": 1,
+      "id": 2,
+      "category": "light",
+      "alias": "模拟灯光2"
+    },
+    {
+      "global_id": 10,
+      "channel_id": 1,
+      "id": 10,
+      "category": "screen",
+      "alias": "模拟投影机1"
+    },
+    {
+      "global_id": 11,
+      "channel_id": 1,
+      "id": 11,
+      "category": "screen",
+      "alias": "模拟投影机2"
+    },
+    {
+      "global_id": 100,
+      "channel_id": 2,
+      "id": 1,
+      "category": "sensor",
+      "alias": "模拟温度传感器"
+    },
+    {
+      "global_id": 101,
+      "channel_id": 3,
+      "id": 1,
+      "category": "pc",
+      "alias": "模拟电脑"
+    }
+  ],
+  "scenes": [
+    {
+      "id": 1,
+      "name": "打开所有灯光",
+      "description": "将所有灯光打开到100%",
+      "steps": [
+        {
+          "nodes": [1, 2],
+          "action": {
+            "type": "write",
+            "value": 100
+          },
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "打开投影系统",
+      "description": "依次打开两台投影机",
+      "steps": [
+        {
+          "nodes": [10],
+          "action": {
+            "type": "write",
+            "value": 1
+          },
+          "delay": 0
+        },
+        {
+          "nodes": [11],
+          "action": {
+            "type": "write",
+            "value": 1
+          },
+          "delay": 1000
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "关闭所有设备",
+      "description": "关闭所有灯光和投影机",
+      "steps": [
+        {
+          "nodes": [1, 2, 10, 11],
+          "action": {
+            "type": "write",
+            "value": 0
+          },
+          "delay": 0
+        }
+      ]
+    }
+  ]
+}

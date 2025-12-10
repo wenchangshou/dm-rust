@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb
+  labels:
+    app: mysql
+data:
+  init.sql: |
+    -- 创建数据库
+    CREATE DATABASE IF NOT EXISTS dm_rust DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+    USE dm_rust;
+
+    -- 创建 lspc_screen 表
+    CREATE TABLE IF NOT EXISTS `lspc_screen` (
+      `id` varchar(36) NOT NULL,
+      `type` enum('Clean','Close','Normal','Pause','Register','Vote') NOT NULL,
+      `name` varchar(255) NOT NULL,
+      `content` mediumtext NOT NULL,
+      `active` bit(1) NOT NULL,
+      `created_at` datetime(6) NOT NULL,
+      `updated_at` datetime(6) NOT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    -- 创建 lspc_material 表
+    CREATE TABLE IF NOT EXISTS `lspc_material` (
+      `id` varchar(36) NOT NULL,
+      `name` varchar(255) NOT NULL,
+      `path` varchar(255) NOT NULL,
+      `created_at` datetime(6) NOT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    -- 创建应用用户并授权
+    GRANT ALL PRIVILEGES ON dm_rust.* TO 'dmuser'@'%' IDENTIFIED BY 'userpassword';
+    FLUSH PRIVILEGES;

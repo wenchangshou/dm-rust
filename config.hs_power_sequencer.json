@@ -1,0 +1,110 @@
+{
+  "system": {
+    "log_level": "debug",
+    "http_port": 8080
+  },
+  "web_server": {
+    "enable": true,
+    "port": 8080
+  },
+  "channels": [
+    {
+      "channel_id": 1,
+      "enable": true,
+      "statute": "hs-power-sequencer",
+      "alias": "HS电源时序器",
+      "arguments": {
+        "port_name": "/dev/pts/31",
+        "baud_rate": 9600,
+        "device_address": 1
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "category": "power",
+      "alias": "通道1"
+    },
+    {
+      "global_id": 2,
+      "channel_id": 1,
+      "id": 2,
+      "category": "power",
+      "alias": "通道2"
+    },
+    {
+      "global_id": 3,
+      "channel_id": 1,
+      "id": 3,
+      "category": "power",
+      "alias": "通道3"
+    },
+    {
+      "global_id": 4,
+      "channel_id": 1,
+      "id": 4,
+      "category": "power",
+      "alias": "通道4"
+    },
+    {
+      "global_id": 5,
+      "channel_id": 1,
+      "id": 5,
+      "category": "power",
+      "alias": "通道5"
+    },
+    {
+      "global_id": 6,
+      "channel_id": 1,
+      "id": 6,
+      "category": "power",
+      "alias": "通道6"
+    },
+    {
+      "global_id": 7,
+      "channel_id": 1,
+      "id": 7,
+      "category": "power",
+      "alias": "通道7"
+    },
+    {
+      "global_id": 8,
+      "channel_id": 1,
+      "id": 8,
+      "category": "power",
+      "alias": "通道8"
+    },
+    {
+      "global_id": 9,
+      "channel_id": 1,
+      "id": 9,
+      "category": "power",
+      "alias": "通道9"
+    },
+    {
+      "global_id": 10,
+      "channel_id": 1,
+      "id": 10,
+      "category": "power",
+      "alias": "通道10"
+    },
+    {
+      "global_id": 11,
+      "channel_id": 1,
+      "id": 11,
+      "category": "power",
+      "alias": "通道11"
+    },
+    {
+      "global_id": 12,
+      "channel_id": 1,
+      "id": 12,
+      "category": "power",
+      "alias": "通道12"
+    }
+  ],
+  "scenes": []
+}

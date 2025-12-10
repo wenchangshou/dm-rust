@@ -1,0 +1,67 @@
+{
+  "channels": [
+    {
+      "channel_id": 1,
+      "enable": true,
+      "statute": "modbus",
+      "arguments": {
+        "type": "tcp",
+        "addr": "192.168.200.23",
+        "port": 502,
+        "slave_id": 1
+      },
+      "auto_call": [
+        {
+          "function": "holding",
+          "start_addr": 0,
+          "count": 100,
+          "interval_ms": 1000
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "category": "sensor",
+      "alias": "温度传感器1",
+      "data_point": {
+        "type": "int16",
+        "addr": 0,
+        "scale": 0.1,
+        "unit": "°C"
+      }
+    },
+    {
+      "global_id": 2,
+      "channel_id": 1,
+      "id": 2,
+      "category": "sensor",
+      "alias": "湿度传感器1",
+      "data_point": {
+        "type": "uint16",
+        "addr": 21,
+        "scale": 0.01,
+        "unit": "%RH"
+      }
+    },
+    {
+      "global_id": 3,
+      "channel_id": 1,
+      "id": 3,
+      "category": "sensor",
+      "alias": "压力传感器1",
+      "data_point": {
+        "type": "float32",
+        "addr": 30,
+        "unit": "kPa"
+      }
+    }
+  ],
+  "scenes": [],
+  "web_server": {
+    "port": 8080
+  }
+}

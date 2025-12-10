@@ -1,0 +1,192 @@
+name: Multi-Platform Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  PROJECT_NAME: dm-rust
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x64-msvc
+            ext: .exe
+
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x64
+            ext: ''
+
+          # macOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x64
+            ext: ''
+
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
+            ext: ''
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        targets: ${{ matrix.platform.target }}
+
+    - name: Install dependencies (Linux)
+      if: matrix.platform.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
+
+    - name: Cache cargo
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.platform.target }}-
+          ${{ runner.os }}-cargo-
+
+    - name: Build release binary
+      run: cargo build --release --target ${{ matrix.platform.target }} --verbose
+
+    - name: Create release directory (Unix)
+      if: matrix.platform.os != 'windows-latest'
+      run: |
+        mkdir -p release
+        cp target/${{ matrix.platform.target }}/release/${{ env.PROJECT_NAME }} release/
+        cp config.example.json release/
+        cp README.md release/ || true
+        cp -r doc release/ || true
+        cp config.mock.json release/ || true
+        cp MOCK_README.md release/ || true
+
+    - name: Create release directory (Windows)
+      if: matrix.platform.os == 'windows-latest'
+      run: |
+        mkdir release
+        Copy-Item target/${{ matrix.platform.target }}/release/${{ env.PROJECT_NAME }}.exe release/
+        Copy-Item config.example.json release/
+        Copy-Item README.md release/ -ErrorAction SilentlyContinue
+        Copy-Item doc release/doc -Recurse -ErrorAction SilentlyContinue
+        Copy-Item config.mock.json release/ -ErrorAction SilentlyContinue
+        Copy-Item MOCK_README.md release/ -ErrorAction SilentlyContinue
+
+    - name: Create archive (Unix)
+      if: matrix.platform.os != 'windows-latest'
+      run: |
+        cd release
+        tar -czf ../${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.tar.gz *
+
+    - name: Create archive (Windows)
+      if: matrix.platform.os == 'windows-latest'
+      run: |
+        Compress-Archive -Path release/* -DestinationPath ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.zip
+
+    - name: Upload artifact (Unix)
+      if: matrix.platform.os != 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}
+        path: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.tar.gz
+        retention-days: 30
+
+    - name: Upload artifact (Windows)
+      if: matrix.platform.os == 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}
+        path: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.zip
+        retention-days: 30
+
+    - name: Upload release assets
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create Release Notes
+      run: |
+        cat > release_notes.md << 'EOF'
+        ## 设备控制系统 - Release ${{ github.ref_name }}
+
+        ### 下载
+
+        选择适合您系统的版本：
+
+        - **Windows (x64)**: `dm-rust-windows-x64-msvc.zip`
+        - **Linux (x64)**: `dm-rust-linux-x64.tar.gz`
+        - **macOS (Intel)**: `dm-rust-macos-x64.tar.gz`
+        - **macOS (Apple Silicon)**: `dm-rust-macos-arm64.tar.gz`
+
+        ### 功能特性
+
+        - ✅ 多协议支持 (Modbus, PJLink, Mock 等)
+        - ✅ RESTful API 接口
+        - ✅ Swagger 文档
+        - ✅ 屏幕和素材管理
+        - ✅ 设备控制和场景执行
+        - ✅ Mock 协议用于调试
+
+        ### 使用方法
+
+        1. 解压下载的文件
+        2. 编辑 `config.example.json` 配置文件
+        3. 运行可执行文件：
+           - Windows: `dm-rust.exe -c config.json`
+           - Linux/macOS: `./dm-rust -c config.json`
+
+        ### 文档
+
+        - [快速开始](doc/QUICKSTART.md)
+        - [配置说明](doc/CONFIGURATION.md)
+        - [HTTP API](doc/HTTP_API.md)
+        - [设备 API](doc/DEVICE_API.md)
+        - [Mock 协议指南](doc/MOCK_PROTOCOL_GUIDE.md)
+
+        访问 `http://localhost:18080/swagger-ui/` 查看交互式 API 文档。
+        EOF
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

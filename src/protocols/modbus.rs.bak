@@ -1,0 +1,404 @@
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio_modbus::prelude::*;
+use tracing::{debug, info, warn};
+
+use crate::protocols::Protocol;
+use crate::utils::{Result, DeviceError};
+
+/// Modbus协议配置参数
+#[derive(Debug, Deserialize, Serialize)]
+struct ModbusConfig {
+    #[serde(rename = "type")]
+    conn_type: String,  // "tcp" or "serial"
+    #[serde(default)]
+    addr: Option<String>,
+    #[serde(default)]
+    port: Option<u16>,
+    #[serde(default)]
+    serial_port: Option<String>,
+    #[serde(default)]
+    baud_rate: Option<u32>,
+    slave_id: u8,
+    #[serde(default)]
+    call_interval: Option<u64>,
+    #[serde(default)]
+    auto_call: Option<bool>,
+}
+
+/// Modbus连接类型
+enum ModbusConnection {
+    Tcp {
+        addr: String,
+        port: u16,
+        slave_id: u8,
+        context: Arc<Mutex<Option<client::Context>>>,
+    },
+    // TODO: Serial支持
+}
+
+/// Modbus协议实现
+pub struct ModbusProtocol {
+    channel_id: u32,
+    connection: ModbusConnection,
+}
+
+impl ModbusProtocol {
+    pub fn new(addr: String, port: u16, slave_id: u8) -> Self {
+        Self {
+            channel_id: 0,
+            connection: ModbusConnection::Tcp {
+                addr,
+                port,
+                slave_id,
+                context: Arc::new(Mutex::new(None)),
+            },
+        }
+    }
+
+    /// 获取或创建 Modbus TCP 连接
+    async fn get_tcp_context(
+        addr: &str,
+        port: u16,
+        slave_id: u8,
+        context_lock: &Arc<Mutex<Option<client::Context>>>,
+    ) -> Result<client::Context> {
+        let mut ctx_guard = context_lock.lock().await;
+
+        // 检查现有连接是否有效
+        if let Some(ctx) = ctx_guard.as_mut() {
+            // 尝试读取一个寄存器来测试连接
+            match ctx.read_holding_registers(0, 1).await {
+                Ok(_) => {
+                    debug!("重用现有的 Modbus TCP 连接");
+                    // 创建新的上下文，因为 Context 不实现 Clone
+                    let socket_addr = format!("{}:{}", addr, port);
+                    let socket_addr = socket_addr.parse().unwrap();
+                    let new_ctx = tcp::connect_slave(socket_addr, Slave(slave_id))
+                        .await
+                        .map_err(|e| DeviceError::ConnectionError(format!("重连失败: {}", e)))?;
+                    return Ok(new_ctx);
+                }
+                Err(e) => {
+                    warn!("现有连接失效: {}, 重新连接", e);
+                    *ctx_guard = None;
+                }
+            }
+        }
+
+        // 创建新连接
+        let socket_addr = format!("{}:{}", addr, port);
+        info!("连接到 Modbus TCP 服务器: {}", socket_addr);
+
+        let socket_addr = socket_addr
+            .parse()
+            .map_err(|e| DeviceError::ConfigError(format!("无效的地址: {}", e)))?;
+
+        let ctx = tcp::connect_slave(socket_addr, Slave(slave_id))
+            .await
+            .map_err(|e| DeviceError::ConnectionError(format!("Modbus TCP 连接失败: {}", e)))?;
+
+        info!("Modbus TCP 连接成功");
+
+        Ok(ctx)
+    }
+
+    /// 读取保持寄存器 (Function Code 03)
+    async fn read_holding_registers(&self, addr: u16, count: u16) -> Result<Vec<u16>> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                let data = ctx
+                    .read_holding_registers(addr, count)
+                    .await
+                    .map_err(|e| {
+                        DeviceError::ConnectionError(format!(
+                            "读取保持寄存器失败 (地址:{}, 数量:{}): {}",
+                            addr, count, e
+                        ))
+                    })?
+                    .map_err(|e| {
+                        DeviceError::ProtocolError(format!(
+                            "Modbus异常响应 (Exception Code: {:?})",
+                            e
+                        ))
+                    })?;
+
+                debug!(
+                    "读取保持寄存器成功 - 地址:{}, 数量:{}, 数据:{:?}",
+                    addr, count, data
+                );
+
+                Ok(data)
+            }
+        }
+    }
+
+    /// 读取输入寄存器 (Function Code 04)
+    async fn read_input_registers(&self, addr: u16, count: u16) -> Result<Vec<u16>> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                let data = ctx.read_input_registers(addr, count).await.map_err(|e| {
+                    DeviceError::ConnectionError(format!(
+                        "读取输入寄存器失败 (地址:{}, 数量:{}): {}",
+                        addr, count, e
+                    ))
+                })?;
+
+                debug!(
+                    "读取输入寄存器成功 - 地址:{}, 数量:{}, 数据:{:?}",
+                    addr, count, data
+                );
+
+                Ok(data)
+            }
+        }
+    }
+
+    /// 写单个保持寄存器 (Function Code 06)
+    async fn write_single_register(&mut self, addr: u16, value: u16) -> Result<()> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                ctx.write_single_register(addr, value).await.map_err(|e| {
+                    DeviceError::ConnectionError(format!(
+                        "写单个寄存器失败 (地址:{}, 值:{}): {}",
+                        addr, value, e
+                    ))
+                })?;
+
+                debug!("写单个寄存器成功 - 地址:{}, 值:{}", addr, value);
+
+                Ok(())
+            }
+        }
+    }
+
+    /// 写多个保持寄存器 (Function Code 16)
+    async fn write_multiple_registers(&mut self, addr: u16, values: &[u16]) -> Result<()> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                ctx.write_multiple_registers(addr, values)
+                    .await
+                    .map_err(|e| {
+                        DeviceError::ConnectionError(format!(
+                            "写多个寄存器失败 (地址:{}, 数量:{}): {}",
+                            addr,
+                            values.len(),
+                            e
+                        ))
+                    })?;
+
+                debug!(
+                    "写多个寄存器成功 - 地址:{}, 数量:{}, 值:{:?}",
+                    addr,
+                    values.len(),
+                    values
+                );
+
+                Ok(())
+            }
+        }
+    }
+
+    /// 读取线圈状态 (Function Code 01)
+    async fn read_coils(&self, addr: u16, count: u16) -> Result<Vec<bool>> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                let data = ctx.read_coils(addr, count).await.map_err(|e| {
+                    DeviceError::ConnectionError(format!(
+                        "读取线圈失败 (地址:{}, 数量:{}): {}",
+                        addr, count, e
+                    ))
+                })?;
+
+                debug!(
+                    "读取线圈成功 - 地址:{}, 数量:{}, 数据:{:?}",
+                    addr, count, data
+                );
+
+                Ok(data)
+            }
+        }
+    }
+
+    /// 读取离散输入 (Function Code 02)
+    async fn read_discrete_inputs(&self, addr: u16, count: u16) -> Result<Vec<bool>> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                let data = ctx.read_discrete_inputs(addr, count).await.map_err(|e| {
+                    DeviceError::ConnectionError(format!(
+                        "读取离散输入失败 (地址:{}, 数量:{}): {}",
+                        addr, count, e
+                    ))
+                })?;
+
+                debug!(
+                    "读取离散输入成功 - 地址:{}, 数量:{}, 数据:{:?}",
+                    addr, count, data
+                );
+
+                Ok(data)
+            }
+        }
+    }
+
+    /// 写单个线圈 (Function Code 05)
+    async fn write_single_coil(&mut self, addr: u16, value: bool) -> Result<()> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                ctx.write_single_coil(addr, value).await.map_err(|e| {
+                    DeviceError::ConnectionError(format!(
+                        "写单个线圈失败 (地址:{}, 值:{}): {}",
+                        addr, value, e
+                    ))
+                })?;
+
+                debug!("写单个线圈成功 - 地址:{}, 值:{}", addr, value);
+
+                Ok(())
+            }
+        }
+    }
+
+    /// 写多个线圈 (Function Code 15)
+    async fn write_multiple_coils(&mut self, addr: u16, values: &[bool]) -> Result<()> {
+        match &self.connection {
+            ModbusConnection::Tcp {
+                addr: ip,
+                port,
+                slave_id,
+                context,
+            } => {
+                let mut ctx = Self::get_tcp_context(ip, *port, *slave_id, context).await?;
+
+                ctx.write_multiple_coils(addr, values).await.map_err(|e| {
+                    DeviceError::ConnectionError(format!(
+                        "写多个线圈失败 (地址:{}, 数量:{}): {}",
+                        addr,
+                        values.len(),
+                        e
+                    ))
+                })?;
+
+                debug!(
+                    "写多个线圈成功 - 地址:{}, 数量:{}, 值:{:?}",
+                    addr,
+                    values.len(),
+                    values
+                );
+
+                Ok(())
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl Protocol for ModbusProtocol {
+    fn from_config(channel_id: u32, params: &HashMap<String, Value>) -> Result<Box<dyn Protocol>> {
+        let conn_type = params.get("type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| DeviceError::ConfigError("Modbus缺少type参数".into()))?;
+        
+        match conn_type {
+            "tcp" => {
+                let addr = params.get("addr")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| DeviceError::ConfigError("Modbus TCP模式缺少addr参数".into()))?
+                    .to_string();
+                
+                let port = params.get("port")
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| DeviceError::ConfigError("Modbus TCP模式缺少port参数".into()))? as u16;
+                
+                Ok(Box::new(Self {
+                    channel_id,
+                    addr,
+                    port,
+                }))
+            }
+            "serial" => {
+                // TODO: 实现串口连接
+                Err(DeviceError::ConfigError("Modbus串口模式暂未实现".into()))
+            }
+            _ => Err(DeviceError::ConfigError(
+                format!("不支持的Modbus连接类型: {}", conn_type)
+            ))
+        }
+    }
+    
+    async fn execute(&mut self, _command: &str, _params: Value) -> Result<Value> {
+        // TODO: 实现Modbus协议
+        Ok(serde_json::json!({"status": "ok"}))
+    }
+
+    async fn get_status(&self) -> Result<Value> {
+        Ok(serde_json::json!({"connected": true}))
+    }
+
+    async fn write(&mut self, _id: u32, _value: i32) -> Result<()> {
+        // TODO: 实现Modbus写入
+        Ok(())
+    }
+
+    async fn read(&self, _id: u32) -> Result<i32> {
+        // TODO: 实现Modbus读取
+        Ok(0)
+    }
+
+    fn name(&self) -> &str {
+        "modbus"
+    }
+}

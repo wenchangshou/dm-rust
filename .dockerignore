@@ -1,0 +1,14 @@
+# 忽略文件
+target/
+.git/
+.gitignore
+*.md
+!README.md
+doc/
+test/
+examples/
+*.log
+*.tmp
+.vscode/
+.idea/
+deploy/

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dm-rust-config
+  labels:
+    app: dm-rust
+data:
+  config.json: |
+    {
+      "_comment": "测试配置 - 包含数据库",
+      "channels": [],
+      "nodes": [],
+      "scenes": [],
+      "web_server": {
+        "port": 18080
+      },
+      "file": {
+        "enable": true,
+        "path": "/file"
+      },
+      "database": {
+        "enable": true,
+        "url": "mysql://root:123.com@192.168.200.31:3306/lspc"
+      },
+      "resource": {
+        "enable": true,
+        "path": "/data",
+        "url_prefix": "/static"
+      }
+    }

@@ -1,0 +1,29 @@
+{
+  "_comment": "最小配置示例 - 仅包含必要字段",
+  "channels": [
+    {
+      "channel_id": 1,
+      "enable": true,
+      "statute": "pjlink",
+      "addr": "192.168.1.100",
+      "port": 4352
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "category": "screen",
+      "alias": "投影仪"
+    }
+  ],
+  "scenes": [],
+  "web_server": {
+    "port": 8080
+  },
+  "file": {
+    "enable": true,
+    "path": "/tmp/device_files"
+  }
+}

@@ -1,0 +1,332 @@
+{
+  "_comment": "智慧教室完整配置示例",
+  "channels": [
+    {
+      "_comment": "主投影仪 - PJLink协议",
+      "channel_id": 1,
+      "enable": true,
+      "statute": "pjlink",
+      "addr": "192.168.1.100",
+      "port": 4352,
+      "password": null
+    },
+    {
+      "_comment": "副投影仪 - PJLink协议",
+      "channel_id": 2,
+      "enable": true,
+      "statute": "pjlink",
+      "addr": "192.168.1.101",
+      "port": 4352,
+      "password": null
+    },
+    {
+      "_comment": "电脑控制 - XinkeQ1模块",
+      "channel_id": 3,
+      "enable": true,
+      "statute": "xinkeQ1",
+      "addr": "192.168.1.120",
+      "port": 6000
+    },
+    {
+      "_comment": "灯光和窗帘 - Modbus控制器",
+      "channel_id": 4,
+      "enable": true,
+      "statute": "modbus",
+      "type": "tcp",
+      "addr": "192.168.1.130",
+      "port": 502,
+      "slave_id": 1,
+      "call_interval": 3000,
+      "auto_call": true
+    },
+    {
+      "_comment": "教师电脑 - Wake-on-LAN",
+      "channel_id": 5,
+      "enable": true,
+      "statute": "computerControl",
+      "mac_address": "AA:BB:CC:DD:EE:01",
+      "broadcast_addr": "192.168.1.255"
+    },
+    {
+      "_comment": "学生电脑1 - Wake-on-LAN",
+      "channel_id": 6,
+      "enable": true,
+      "statute": "computerControl",
+      "mac_address": "AA:BB:CC:DD:EE:02",
+      "broadcast_addr": "192.168.1.255"
+    }
+  ],
+  "nodes": [
+    {
+      "_comment": "主投影仪",
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "category": "projector",
+      "alias": "主投影仪"
+    },
+    {
+      "_comment": "副投影仪",
+      "global_id": 2,
+      "channel_id": 2,
+      "id": 1,
+      "category": "projector",
+      "alias": "副投影仪"
+    },
+    {
+      "_comment": "教师电脑 - 依赖主投影仪",
+      "global_id": 3,
+      "channel_id": 5,
+      "id": 1,
+      "category": "computer",
+      "alias": "教师电脑",
+      "depend": [
+        {
+          "id": 1,
+          "value": 1
+        }
+      ],
+      "depend_strategy": "auto"
+    },
+    {
+      "_comment": "学生电脑 - 依赖副投影仪",
+      "global_id": 4,
+      "channel_id": 6,
+      "id": 1,
+      "category": "computer",
+      "alias": "学生电脑",
+      "depend": [
+        {
+          "id": 2,
+          "value": 1
+        }
+      ],
+      "depend_strategy": "auto"
+    },
+    {
+      "_comment": "主灯光",
+      "global_id": 5,
+      "channel_id": 4,
+      "id": 1,
+      "category": "light",
+      "alias": "主灯光"
+    },
+    {
+      "_comment": "辅助灯光",
+      "global_id": 6,
+      "channel_id": 4,
+      "id": 2,
+      "category": "light",
+      "alias": "辅助灯光"
+    },
+    {
+      "_comment": "窗帘",
+      "global_id": 7,
+      "channel_id": 4,
+      "id": 3,
+      "category": "curtain",
+      "alias": "电动窗帘"
+    },
+    {
+      "_comment": "多媒体讲台电脑",
+      "global_id": 8,
+      "channel_id": 3,
+      "id": 1,
+      "category": "computer",
+      "alias": "讲台电脑"
+    }
+  ],
+  "scenes": [
+    {
+      "_comment": "上课模式 - 全部启动",
+      "name": "上课模式",
+      "nodes": [
+        {
+          "id": 5,
+          "value": 1,
+          "_comment": "开主灯"
+        },
+        {
+          "id": 1,
+          "value": 1,
+          "delay": 500,
+          "_comment": "启动主投影仪"
+        },
+        {
+          "id": 2,
+          "value": 1,
+          "delay": 500,
+          "_comment": "启动副投影仪"
+        },
+        {
+          "id": 8,
+          "value": 1,
+          "delay": 1000,
+          "_comment": "启动讲台电脑"
+        },
+        {
+          "id": 3,
+          "value": 1,
+          "delay": 2000,
+          "_comment": "启动教师电脑（等待投影仪预热）"
+        },
+        {
+          "id": 4,
+          "value": 1,
+          "delay": 1000,
+          "_comment": "启动学生电脑"
+        }
+      ]
+    },
+    {
+      "_comment": "投影模式 - 关灯投影",
+      "name": "投影模式",
+      "nodes": [
+        {
+          "id": 5,
+          "value": 0,
+          "_comment": "关闭主灯"
+        },
+        {
+          "id": 6,
+          "value": 0,
+          "_comment": "关闭辅助灯"
+        },
+        {
+          "id": 7,
+          "value": 0,
+          "delay": 500,
+          "_comment": "关闭窗帘"
+        },
+        {
+          "id": 1,
+          "value": 1,
+          "delay": 1000,
+          "_comment": "确保主投影开启"
+        }
+      ]
+    },
+    {
+      "_comment": "下课模式 - 关闭所有设备",
+      "name": "下课模式",
+      "nodes": [
+        {
+          "id": 3,
+          "value": 0,
+          "_comment": "关闭教师电脑"
+        },
+        {
+          "id": 4,
+          "value": 0,
+          "_comment": "关闭学生电脑"
+        },
+        {
+          "id": 8,
+          "value": 0,
+          "delay": 1000,
+          "_comment": "关闭讲台电脑"
+        },
+        {
+          "id": 1,
+          "value": 0,
+          "delay": 2000,
+          "_comment": "关闭主投影仪"
+        },
+        {
+          "id": 2,
+          "value": 0,
+          "_comment": "关闭副投影仪"
+        },
+        {
+          "id": 7,
+          "value": 1,
+          "delay": 1000,
+          "_comment": "打开窗帘"
+        },
+        {
+          "id": 5,
+          "value": 1,
+          "_comment": "开启主灯"
+        },
+        {
+          "id": 6,
+          "value": 0,
+          "delay": 500,
+          "_comment": "关闭辅助灯"
+        }
+      ]
+    },
+    {
+      "_comment": "自习模式 - 仅开灯",
+      "name": "自习模式",
+      "nodes": [
+        {
+          "id": 1,
+          "value": 0,
+          "_comment": "关闭投影"
+        },
+        {
+          "id": 2,
+          "value": 0
+        },
+        {
+          "id": 5,
+          "value": 1,
+          "delay": 500,
+          "_comment": "开启所有灯光"
+        },
+        {
+          "id": 6,
+          "value": 1
+        },
+        {
+          "id": 7,
+          "value": 1,
+          "_comment": "打开窗帘"
+        }
+      ]
+    },
+    {
+      "_comment": "节能模式 - 关闭所有",
+      "name": "节能模式",
+      "nodes": [
+        {
+          "id": 1,
+          "value": 0
+        },
+        {
+          "id": 2,
+          "value": 0
+        },
+        {
+          "id": 3,
+          "value": 0
+        },
+        {
+          "id": 4,
+          "value": 0
+        },
+        {
+          "id": 5,
+          "value": 0
+        },
+        {
+          "id": 6,
+          "value": 0
+        },
+        {
+          "id": 8,
+          "value": 0
+        }
+      ]
+    }
+  ],
+  "web_server": {
+    "port": 8080
+  },
+  "task_settings": {
+    "timeout_ms": 5000,
+    "check_interval_ms": 500,
+    "max_retries": 3
+  }
+}
