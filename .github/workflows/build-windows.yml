@@ -74,7 +74,7 @@ jobs:
         Compress-Archive -Path release/* -DestinationPath dm-rust-windows-x64.zip
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dm-rust-windows-x64
         path: dm-rust-windows-x64.zip
@@ -143,7 +143,7 @@ jobs:
         zip -r ../dm-rust-windows-x64-gnu.zip *
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dm-rust-windows-x64-gnu
         path: dm-rust-windows-x64-gnu.zip

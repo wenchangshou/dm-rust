@@ -107,7 +107,7 @@ jobs:
 
     - name: Upload artifact (Unix)
       if: matrix.platform.os != 'windows-latest'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}
         path: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.tar.gz
@@ -115,7 +115,7 @@ jobs:
 
     - name: Upload artifact (Windows)
       if: matrix.platform.os == 'windows-latest'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}
         path: ${{ env.PROJECT_NAME }}-${{ matrix.platform.name }}.zip
