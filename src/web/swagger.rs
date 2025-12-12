@@ -22,6 +22,7 @@ use super::device_api::{
     StatusRequest, SceneRequest, ChannelCommandRequest,
     CallMethodRequest, GetMethodsRequest,
     BatchReadRequest, BatchReadItem, BatchReadResultItem,
+    SystemSettingsResponse,
 };
 
 /// OpenAPI 文档定义
@@ -52,6 +53,7 @@ use super::device_api::{
         crate::web::resource_api::upload_material,
         crate::web::resource_api::serve_static_resource,
         // Device API
+        crate::web::device_api::get_all_settings,
         crate::web::device_api::get_all_status,
         crate::web::device_api::get_all_node_states,
         crate::web::device_api::get_node_state,
@@ -102,6 +104,7 @@ use super::device_api::{
             BatchReadRequest,
             BatchReadItem,
             BatchReadResultItem,
+            SystemSettingsResponse,
         )
     ),
     tags(

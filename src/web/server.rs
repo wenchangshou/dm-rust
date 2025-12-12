@@ -21,6 +21,7 @@ use super::device_api::{
     get_all_status, get_all_node_states, get_node_state,
     read_device, read_many, write_device, write_many,
     execute_scene, execute_channel_command, call_method, get_methods, batch_read,
+    get_all_settings,
 };
 use super::file_api::{
     FileManagerState, file_list, file_upload, file_download, file_delete,
@@ -69,9 +70,10 @@ impl WebServer {
         let controller = Arc::new(self.controller);
         let file_config = self.config.file.clone();
         let file_manager_state = FileManagerState { config: file_config.clone() };
+        let db_ref = self.database.clone();
 
         // 设备控制路由
-        let device_routes = Router::new()
+        let mut device_routes = Router::new()
             .route("/getAllStatus", post(get_all_status))
             .route("/getAllNodeStates", post(get_all_node_states))
             .route("/getNodeState", post(get_node_state))
@@ -85,6 +87,13 @@ impl WebServer {
             .route("/getMethods", post(get_methods))
             .route("/batchRead", post(batch_read))
             .layer(Extension(controller));
+
+        // 如果有数据库，添加需要数据库的路由
+        if let Some(ref db) = db_ref {
+            device_routes = device_routes
+                .route("/getAll", get(get_all_settings))
+                .layer(Extension(db.clone()));
+        }
 
         // 基础应用路由
         let mut app = Router::new()

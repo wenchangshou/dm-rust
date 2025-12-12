@@ -6,6 +6,7 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 
 use crate::device::DeviceController;
+use crate::db::Database;
 use crate::utils::error::error_codes;
 use super::response::ApiResponse;
 
@@ -154,7 +155,87 @@ pub struct BatchReadResultItem {
     pub error: Option<String>,
 }
 
+/// 系统设置响应
+#[derive(Serialize, ToSchema)]
+pub struct SystemSettingsResponse {
+    /// PID PDUs设置
+    #[serde(rename = "pidPdus")]
+    pub pid_pdus: bool,
+    /// 大屏设置
+    #[serde(rename = "bigScreen")]
+    pub big_screen: bool,
+    /// 大屏机架设置
+    #[serde(rename = "bigScreenRack")]
+    pub big_screen_rack: bool,
+    /// 音频机架设置
+    #[serde(rename = "AudioRack")]
+    pub audio_rack: bool,
+}
+
 // ===== API 处理函数 =====
+
+/// 获取系统设置
+#[utoipa::path(
+    get,
+    path = "/lspcapi/device/getAll",
+    responses(
+        (status = 200, description = "获取成功", body = inline(ApiResponse<SystemSettingsResponse>))
+    ),
+    tag = "Device"
+)]
+pub async fn get_all_settings(
+    Extension(db): Extension<Arc<Database>>,
+) -> Json<ApiResponse<SystemSettingsResponse>> {
+    // 辅助函数：解析boolean值
+    let parse_bool = |value: &str| -> bool {
+        match value.to_lowercase().as_str() {
+            "true" | "1" | "yes" => true,
+            _ => false,
+        }
+    };
+
+    // 从数据库读取settings
+    let result = sqlx::query_as::<_, (String, String)>(
+        "SELECT name, value FROM settings WHERE name IN ('pidPdus', 'bigScreen', 'bigScreenRack', 'AudioRack')"
+    )
+    .fetch_all(&db.pool)
+    .await;
+
+    match result {
+        Ok(rows) => {
+            let mut pid_pdus = false;
+            let mut big_screen = false;
+            let mut big_screen_rack = false;
+            let mut audio_rack = false;
+
+            for (name, value) in rows {
+                match name.as_str() {
+                    "pidPdus" => pid_pdus = parse_bool(&value),
+                    "bigScreen" => big_screen = parse_bool(&value),
+                    "bigScreenRack" => big_screen_rack = parse_bool(&value),
+                    "AudioRack" => audio_rack = parse_bool(&value),
+                    _ => {}
+                }
+            }
+
+            Json(ApiResponse {
+                state: error_codes::SUCCESS,
+                message: "成功".to_string(),
+                data: Some(SystemSettingsResponse {
+                    pid_pdus,
+                    big_screen,
+                    big_screen_rack,
+                    audio_rack,
+                }),
+            })
+        }
+        Err(e) => Json(ApiResponse {
+            state: error_codes::GENERAL_ERROR,
+            message: format!("查询失败: {:?}", e),
+            data: None,
+        }),
+    }
+}
 
 /// 获取所有通道状态
 #[utoipa::path(

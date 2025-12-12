@@ -44,6 +44,18 @@ CREATE TABLE IF NOT EXISTS `lspc_material` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='素材管理表';
 
 -- =====================================================
+-- settings 表 - 系统设置
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `settings` (
+    `name` VARCHAR(255) NOT NULL PRIMARY KEY COMMENT '设置名称（主键）',
+    `type` VARCHAR(32) NOT NULL COMMENT '数据类型：string, integer, float, boolean, json, datetime',
+    `value` TEXT NOT NULL COMMENT '设置值',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_type` (`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='配置表';
+
+-- =====================================================
 -- 示例数据（可选）
 -- =====================================================
 
@@ -56,3 +68,13 @@ CREATE TABLE IF NOT EXISTS `lspc_material` (
 -- INSERT INTO `lspc_material` (`id`, `name`, `screen_id`, `path`, `resource_type`) VALUES
 -- (UUID(), '示例图片', '', '202501/example.png', 'image'),
 -- (UUID(), '示例视频', '', '202501/example.mp4', 'video');
+
+-- 插入默认系统设置
+INSERT INTO `settings` (`name`, `type`, `value`) VALUES
+('pidPdus', 'boolean', 'false'),
+('bigScreen', 'boolean', 'false'),
+('bigScreenRack', 'boolean', 'false'),
+('AudioRack', 'boolean', 'false')
+ON DUPLICATE KEY UPDATE
+    `type` = VALUES(`type`),
+    `value` = VALUES(`value`);

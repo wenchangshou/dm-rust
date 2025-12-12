@@ -212,3 +212,83 @@ pub struct UploadMaterialRequest {
     #[schema(value_type = String, format = Binary)]
     pub file: Vec<u8>,
 }
+
+/// 数据类型枚举
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, ToSchema)]
+#[sqlx(type_name = "VARCHAR")]
+#[serde(rename_all = "lowercase")]
+pub enum DataType {
+    String,
+    Integer,
+    Float,
+    Boolean,
+    Json,
+    DateTime,
+}
+
+impl std::fmt::Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DataType::String => write!(f, "string"),
+            DataType::Integer => write!(f, "integer"),
+            DataType::Float => write!(f, "float"),
+            DataType::Boolean => write!(f, "boolean"),
+            DataType::Json => write!(f, "json"),
+            DataType::DateTime => write!(f, "datetime"),
+        }
+    }
+}
+
+impl std::str::FromStr for DataType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "string" => Ok(DataType::String),
+            "integer" => Ok(DataType::Integer),
+            "float" => Ok(DataType::Float),
+            "boolean" => Ok(DataType::Boolean),
+            "json" => Ok(DataType::Json),
+            "datetime" => Ok(DataType::DateTime),
+            _ => Err(anyhow::anyhow!("无效的 DataType: {}", s)),
+        }
+    }
+}
+
+/// settings 表模型
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Setting {
+    /// 设置名称（主键）
+    pub name: String,
+    /// 数据类型
+    #[serde(rename = "type")]
+    pub data_type: String,
+    /// 设置值
+    pub value: String,
+    /// 创建时间
+    pub created_at: DateTime<Utc>,
+    /// 更新时间
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 创建 Setting 请求
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreateSettingRequest {
+    /// 设置名称
+    pub name: String,
+    /// 数据类型：string, integer, float, boolean, json, datetime
+    #[serde(rename = "type")]
+    pub data_type: String,
+    /// 设置值
+    pub value: String,
+}
+
+/// 更新 Setting 请求
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UpdateSettingRequest {
+    /// 数据类型（可选）
+    #[serde(rename = "type")]
+    pub data_type: Option<String>,
+    /// 设置值（可选）
+    pub value: Option<String>,
+}
