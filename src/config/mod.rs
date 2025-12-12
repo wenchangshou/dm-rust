@@ -18,6 +18,9 @@ pub struct Config {
     /// 资源管理配置（可选）
     #[serde(default)]
     pub resource: Option<ResourceConfig>,
+    /// 日志配置（可选）
+    #[serde(default)]
+    pub log: Option<LogConfig>,
 }
 
 /// 文件管理配置
@@ -56,6 +59,50 @@ pub struct ResourceConfig {
 
 fn default_resource_url_prefix() -> String {
     "/static".to_string()
+}
+
+/// 日志配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogConfig {
+    /// 日志级别: trace, debug, info, warn, error
+    #[serde(default = "default_log_level")]
+    pub level: String,
+    /// 日志输出目标: console, file, both
+    #[serde(default = "default_log_target")]
+    pub target: String,
+    /// 日志文件路径（当 target 为 file 或 both 时使用）
+    #[serde(default = "default_log_file")]
+    pub file: String,
+    /// 是否追加到现有文件
+    #[serde(default = "default_log_append")]
+    pub append: bool,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
+fn default_log_target() -> String {
+    "console".to_string()
+}
+
+fn default_log_file() -> String {
+    "logs/dm-rust.log".to_string()
+}
+
+fn default_log_append() -> bool {
+    true
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            level: default_log_level(),
+            target: default_log_target(),
+            file: default_log_file(),
+            append: default_log_append(),
+        }
+    }
 }
 
 /// 任务调度配置

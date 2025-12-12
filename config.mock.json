@@ -91,54 +91,56 @@
   ],
   "scenes": [
     {
-      "id": 1,
       "name": "打开所有灯光",
-      "description": "将所有灯光打开到100%",
-      "steps": [
+      "nodes": [
         {
-          "nodes": [1, 2],
-          "action": {
-            "type": "write",
-            "value": 100
-          },
+          "id": 1,
+          "value": 100,
+          "delay": 0
+        },
+        {
+          "id": 2,
+          "value": 100,
           "delay": 0
         }
       ]
     },
     {
-      "id": 2,
       "name": "打开投影系统",
-      "description": "依次打开两台投影机",
-      "steps": [
+      "nodes": [
         {
-          "nodes": [10],
-          "action": {
-            "type": "write",
-            "value": 1
-          },
+          "id": 10,
+          "value": 1,
           "delay": 0
         },
         {
-          "nodes": [11],
-          "action": {
-            "type": "write",
-            "value": 1
-          },
+          "id": 11,
+          "value": 1,
           "delay": 1000
         }
       ]
     },
     {
-      "id": 3,
       "name": "关闭所有设备",
-      "description": "关闭所有灯光和投影机",
-      "steps": [
+      "nodes": [
         {
-          "nodes": [1, 2, 10, 11],
-          "action": {
-            "type": "write",
-            "value": 0
-          },
+          "id": 1,
+          "value": 0,
+          "delay": 0
+        },
+        {
+          "id": 2,
+          "value": 0,
+          "delay": 0
+        },
+        {
+          "id": 10,
+          "value": 0,
+          "delay": 0
+        },
+        {
+          "id": 11,
+          "value": 0,
           "delay": 0
         }
       ]

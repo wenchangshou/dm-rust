@@ -1,0 +1,29 @@
+{
+  "_comment": "设备管理系统配置 - Windows服务运行版本",
+  "channels": [],
+  "nodes": [],
+  "scenes": [],
+  "web_server": {
+    "port": 8080
+  },
+  "log": {
+    "level": "info",
+    "target": "file",
+    "file": "C:/ProgramData/device-manage/logs/service.log",
+    "append": true
+  },
+  "task_settings": {
+    "timeout_ms": 5000,
+    "check_interval_ms": 500,
+    "max_retries": 3
+  },
+  "database": {
+    "enable": true,
+    "url": "mysql://root:password@localhost:3306/device_manage"
+  },
+  "resource": {
+    "enable": true,
+    "path": "C:/ProgramData/device-manage/resources",
+    "url_prefix": "/static"
+  }
+}

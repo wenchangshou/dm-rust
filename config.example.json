@@ -355,6 +355,15 @@
     "_comment": "HTTP 控制服务器配置 - 通过 HTTP API 控制设备",
     "port": 8080
   },
+  "log": {
+    "_comment": "日志配置 - 控制日志输出行为",
+    "level": "info",
+    "target": "both",
+    "file": "logs/dm-rust.log",
+    "append": true,
+    "_level_options": "trace, debug, info, warn, error",
+    "_target_options": "console (仅控制台), file (仅文件), both (控制台和文件)"
+  },
   "task_settings": {
     "_comment": "任务调度配置 - 控制依赖检查和超时",
     "timeout_ms": 5000,

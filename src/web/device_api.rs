@@ -168,7 +168,7 @@ pub struct SystemSettingsResponse {
     #[serde(rename = "bigScreenRack")]
     pub big_screen_rack: bool,
     /// 音频机架设置
-    #[serde(rename = "AudioRack")]
+    #[serde(rename = "audioRack")]
     pub audio_rack: bool,
 }
 
@@ -196,7 +196,7 @@ pub async fn get_all_settings(
 
     // 从数据库读取settings
     let result = sqlx::query_as::<_, (String, String)>(
-        "SELECT name, value FROM settings WHERE name IN ('pidPdus', 'bigScreen', 'bigScreenRack', 'AudioRack')"
+        "SELECT name, value FROM settings WHERE name IN ('pidPdus', 'bigScreen', 'bigScreenRack', 'audioRack')"
     )
     .fetch_all(&db.pool)
     .await;
@@ -213,7 +213,7 @@ pub async fn get_all_settings(
                     "pidPdus" => pid_pdus = parse_bool(&value),
                     "bigScreen" => big_screen = parse_bool(&value),
                     "bigScreenRack" => big_screen_rack = parse_bool(&value),
-                    "AudioRack" => audio_rack = parse_bool(&value),
+                    "audioRack" => audio_rack = parse_bool(&value),
                     _ => {}
                 }
             }
