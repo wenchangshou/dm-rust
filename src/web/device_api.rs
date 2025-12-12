@@ -275,7 +275,7 @@ pub async fn read_device(
     Extension(controller): Extension<Arc<DeviceController>>,
     Json(payload): Json<ReadRequest>,
 ) -> Json<ApiResponse<f64>> {
-    match controller.read_node(payload.id).await {
+    match controller.read_node(payload.global_id).await {
         Ok(value) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "读取成功".to_string(),
@@ -351,7 +351,7 @@ pub async fn write_device(
     Extension(controller): Extension<Arc<DeviceController>>,
     Json(payload): Json<WriteRequest>,
 ) -> Json<ApiResponse<()>> {
-    match controller.write_node(payload.id, payload.value).await {
+    match controller.write_node(payload.global_id, payload.value).await {
         Ok(_) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "操作成功".to_string(),
