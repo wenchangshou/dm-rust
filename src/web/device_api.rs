@@ -2,6 +2,7 @@
 
 use axum::{Json, extract::Extension};
 use serde::{Deserialize, Serialize};
+use serde_json::Number;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
@@ -159,8 +160,8 @@ pub struct BatchReadResultItem {
 #[derive(Serialize, ToSchema)]
 pub struct SystemSettingsResponse {
     /// PID PDUs设置
-    #[serde(rename = "pidPdus")]
-    pub pid_pdus: bool,
+    #[serde(rename = "padPdus")]
+    pub pad_pdus: bool,
     /// 大屏设置
     #[serde(rename = "bigScreen")]
     pub big_screen: bool,
@@ -170,6 +171,10 @@ pub struct SystemSettingsResponse {
     /// 音频机架设置
     #[serde(rename = "audioRack")]
     pub audio_rack: bool,
+    #[serde(rename = "video")]
+    pub video: Number,
+    #[serde(rename="actuator")]
+    pub  actuator: String
 }
 
 // ===== API 处理函数 =====
@@ -196,21 +201,21 @@ pub async fn get_all_settings(
 
     // 从数据库读取settings
     let result = sqlx::query_as::<_, (String, String)>(
-        "SELECT name, value FROM settings WHERE name IN ('pidPdus', 'bigScreen', 'bigScreenRack', 'audioRack')"
+        "SELECT name, value FROM settings WHERE name IN ('padPdus', 'bigScreen', 'bigScreenRack', 'audioRack')"
     )
     .fetch_all(&db.pool)
     .await;
 
     match result {
         Ok(rows) => {
-            let mut pid_pdus = false;
+            let mut pad_pdus = false;
             let mut big_screen = false;
             let mut big_screen_rack = false;
             let mut audio_rack = false;
 
             for (name, value) in rows {
                 match name.as_str() {
-                    "pidPdus" => pid_pdus = parse_bool(&value),
+                    "padPdus" => pad_pdus = parse_bool(&value),
                     "bigScreen" => big_screen = parse_bool(&value),
                     "bigScreenRack" => big_screen_rack = parse_bool(&value),
                     "audioRack" => audio_rack = parse_bool(&value),
@@ -222,10 +227,12 @@ pub async fn get_all_settings(
                 state: error_codes::SUCCESS,
                 message: "成功".to_string(),
                 data: Some(SystemSettingsResponse {
-                    pid_pdus,
+                    pad_pdus,
                     big_screen,
                     big_screen_rack,
                     audio_rack,
+                    video: Number::from(1),
+                    actuator: "idle".to_string(),
                 }),
             })
         }
