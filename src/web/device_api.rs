@@ -15,7 +15,7 @@ use super::response::ApiResponse;
 #[derive(Deserialize, ToSchema)]
 pub struct WriteRequest {
     /// 节点全局 ID
-    pub id: u32,
+    pub global_id: u32,
     /// 写入值
     pub value: i32,
 }
@@ -52,7 +52,7 @@ pub struct WriteManyResultItem {
 #[derive(Deserialize, ToSchema)]
 pub struct ReadRequest {
     /// 节点全局 ID
-    pub id: u32,
+    pub global_id: u32,
 }
 
 /// 批量读取请求
