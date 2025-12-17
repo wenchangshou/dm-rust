@@ -1,0 +1,149 @@
+{
+  "_comment": "测试配置 - 包含数据库和6个虚拟设备",
+  "web_server": {
+    "port": 18080
+  },
+  "file": {
+    "enable": true,
+    "path": "/file"
+  },
+  "database": {
+    "enable": true,
+    "url": "mysql://root:123.com@192.168.200.31:3306/lspc"
+  },
+  "resource": {
+    "enable": true,
+    "path": "/data",
+    "url_prefix": "/static"
+  },
+  "channels": [
+    {
+      "enable": true,
+      "channel_id": 1,
+      "statute": "mock",
+      "description": "模拟通道 - 智能设备控制",
+      "arguments": {
+        "delay_ms": 50,
+        "error_rate": 0.0,
+        "initial_values": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        }
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "alias": "智能灯光"
+    },
+    {
+      "global_id": 2,
+      "channel_id": 1,
+      "id": 2,
+      "alias": "投影仪"
+    },
+    {
+      "global_id": 3,
+      "channel_id": 1,
+      "id": 3,
+      "alias": "音响系统"
+    },
+    {
+      "global_id": 4,
+      "channel_id": 1,
+      "id": 4,
+      "alias": "电动窗帘"
+    },
+    {
+      "global_id": 5,
+      "channel_id": 1,
+      "id": 5,
+      "alias": "空调系统"
+    },
+    {
+      "global_id": 6,
+      "channel_id": 1,
+      "id": 6,
+      "alias": "LED显示屏"
+    }
+  ],
+  "scenes": [
+    {
+      "name": "openAll",
+      "nodes": [
+        {
+          "id": 1,
+          "value": 1,
+          "delay": 0
+        },
+        {
+          "id": 2,
+          "value": 1,
+          "delay": 20000
+        },
+        {
+          "id": 3,
+          "value": 1,
+          "delay": 20000
+        },
+        {
+          "id": 4,
+          "value": 1,
+          "delay": 20000
+        },
+        {
+          "id": 5,
+          "value": 1,
+          "delay": 20000
+        },
+        {
+          "id": 6,
+          "value": 1,
+          "delay": 40000
+        }
+      ]
+    },
+    {
+      "name": "closeAll",
+      "nodes": [
+        {
+          "id": 6,
+          "value": 0,
+          "delay": 0
+        },
+        {
+          "id": 5,
+          "value": 0,
+          "delay": 20000
+        },
+        {
+          "id": 4,
+          "value": 0,
+          "delay": 20000
+        },
+        {
+          "id": 3,
+          "value": 0,
+          "delay": 20000
+        },
+        {
+          "id": 2,
+          "value": 0,
+          "delay": 20000
+        },
+        {
+          "id": 1,
+          "value": 0,
+          "delay": 40000
+        }
+      ]
+    }
+  ]
+}

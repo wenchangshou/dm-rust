@@ -243,7 +243,8 @@ pub struct NodeConfig {
     pub global_id: u32,
     pub channel_id: u32,
     pub id: u32,
-    pub category: String, // "pc", "light", "screen", "multiScreen", "sensor"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
     pub alias: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub depend: Option<Vec<Dependency>>,

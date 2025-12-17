@@ -13,7 +13,7 @@ pub struct NodeState {
     pub global_id: u32,
     pub channel_id: u32,
     pub device_id: u32,
-    pub category: String,
+    pub category: Option<String>,
     pub alias: String,
     pub current_value: Option<i32>,
     pub online: bool,

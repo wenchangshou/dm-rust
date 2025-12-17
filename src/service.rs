@@ -268,9 +268,9 @@ async fn run_application() -> Result<()> {
     // 启动Web服务器
     tracing::info!("正在启动Web服务器...");
     let web_server = if let Some(db) = database {
-        web::WebServer::with_database(cfg.clone(), device_controller.clone(), db)
+        web::WebServer::with_database(cfg.clone(), used_path.clone(), device_controller.clone(), db)
     } else {
-        web::WebServer::new(cfg.clone(), device_controller.clone())
+        web::WebServer::new(cfg.clone(), used_path.clone(), device_controller.clone())
     };
 
     web_server.run().await?;

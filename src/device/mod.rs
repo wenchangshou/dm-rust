@@ -14,7 +14,7 @@ mod dependency_resolver;
 pub use channel_manager::ChannelManager;
 pub use node_manager::{NodeManager, NodeState};
 pub use task_scheduler::{TaskScheduler, Task, TaskStatus};
-pub use scene_executor::SceneExecutor;
+pub use scene_executor::{SceneExecutor, SceneExecutionStatus};
 pub use dependency_resolver::DependencyResolver;
 
 /// 设备事件
@@ -260,7 +260,12 @@ impl DeviceController {
         info!("执行场景: {}", scene_name);
         self.scene_executor.execute(scene_name, self).await
     }
-    
+
+    /// 获取场景执行状态
+    pub async fn get_scene_execution_status(&self) -> SceneExecutionStatus {
+        self.scene_executor.get_execution_status().await
+    }
+
     /// 获取所有通道状态
     pub async fn get_all_channel_status(&self) -> Result<serde_json::Value> {
         self.channel_manager.get_all_status().await

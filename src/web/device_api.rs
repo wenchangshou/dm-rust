@@ -156,6 +156,16 @@ pub struct BatchReadResultItem {
     pub error: Option<String>,
 }
 
+/// 场景执行状态响应
+#[derive(Serialize, ToSchema)]
+pub struct SceneExecutionStatusResponse {
+    /// 是否正在执行场景
+    pub is_executing: bool,
+    /// 当前执行的场景名称（如果有）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_scene: Option<String>,
+}
+
 /// 系统设置响应
 #[derive(Serialize, ToSchema)]
 pub struct SystemSettingsResponse {
@@ -499,13 +509,16 @@ pub async fn write_many(
     })
 }
 
-/// 执行场景
+/// 执行场景（异步执行）
+/// 
+/// 场景会在后台异步执行，此接口立即返回。
+/// 使用 /lspcapi/device/sceneStatus 接口查询执行状态。
 #[utoipa::path(
     post,
     path = "/lspcapi/device/scene",
     request_body = SceneRequest,
     responses(
-        (status = 200, description = "场景执行成功", body = inline(ApiResponse<()>))
+        (status = 200, description = "场景已开始执行", body = inline(ApiResponse<()>))
     ),
     tag = "Device"
 )]
@@ -516,15 +529,38 @@ pub async fn execute_scene(
     match controller.execute_scene(&payload.name).await {
         Ok(_) => Json(ApiResponse {
             state: error_codes::SUCCESS,
-            message: format!("场景 '{}' 执行成功", payload.name),
+            message: format!("场景 '{}' 已开始执行", payload.name),
             data: None,
         }),
         Err(e) => Json(ApiResponse {
             state: error_codes::GENERAL_ERROR,
-            message: format!("场景执行失败: {:?}", e),
+            message: format!("场景启动失败: {:?}", e),
             data: None,
         }),
     }
+}
+
+/// 获取场景执行状态
+#[utoipa::path(
+    get,
+    path = "/lspcapi/device/sceneStatus",
+    responses(
+        (status = 200, description = "获取成功", body = inline(ApiResponse<SceneExecutionStatusResponse>))
+    ),
+    tag = "Device"
+)]
+pub async fn get_scene_status(
+    Extension(controller): Extension<Arc<DeviceController>>,
+) -> Json<ApiResponse<SceneExecutionStatusResponse>> {
+    let status = controller.get_scene_execution_status().await;
+    Json(ApiResponse {
+        state: error_codes::SUCCESS,
+        message: "获取场景执行状态成功".to_string(),
+        data: Some(SceneExecutionStatusResponse {
+            is_executing: status.is_executing,
+            current_scene: status.current_scene,
+        }),
+    })
 }
 
 /// 执行通道命令

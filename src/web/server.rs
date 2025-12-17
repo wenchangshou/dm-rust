@@ -20,14 +20,14 @@ use crate::db::Database;
 use super::device_api::{
     get_all_status, get_all_node_states, get_node_state,
     read_device, read_many, write_device, write_many,
-    execute_scene, execute_channel_command, call_method, get_methods, batch_read,
+    execute_scene, get_scene_status, execute_channel_command, call_method, get_methods, batch_read,
     get_all_settings,
 };
 use super::file_api::{
     FileManagerState, file_list, file_upload, file_download, file_delete,
     file_mkdir, file_rename, file_info, file_preview, file_view,
 };
-use super::file_page::FILE_MANAGER_HTML;
+use super::file_page::{FILE_MANAGER_HTML, DEBUG_CONSOLE_HTML, CONFIG_MANAGER_HTML};
 use super::db_api::{
     list_screens, get_screen, create_screen, update_screen, delete_screen, replace_all_screens,
     set_screen_active,
@@ -47,6 +47,7 @@ const API_PREFIX: &str = "/lspcapi";
 #[derive(Clone)]
 pub struct WebServer {
     config: Config,
+    config_path: String,
     controller: DeviceController,
     database: Option<Arc<Database>>,
     resource_config: Option<ResourceConfig>,
@@ -54,15 +55,15 @@ pub struct WebServer {
 
 impl WebServer {
     /// 创建新的 Web 服务器实例
-    pub fn new(config: Config, controller: DeviceController) -> Self {
+    pub fn new(config: Config, config_path: String, controller: DeviceController) -> Self {
         let resource_config = config.resource.clone();
-        Self { config, controller, database: None, resource_config }
+        Self { config, config_path, controller, database: None, resource_config }
     }
 
     /// 创建带数据库的 Web 服务器实例
-    pub fn with_database(config: Config, controller: DeviceController, database: Database) -> Self {
+    pub fn with_database(config: Config, config_path: String, controller: DeviceController, database: Database) -> Self {
         let resource_config = config.resource.clone();
-        Self { config, controller, database: Some(Arc::new(database)), resource_config }
+        Self { config, config_path, controller, database: Some(Arc::new(database)), resource_config }
     }
 
     /// 运行 Web 服务器
@@ -73,6 +74,7 @@ impl WebServer {
         let db_ref = self.database.clone();
 
         // 设备控制路由
+        let config_clone = self.config.clone();
         let mut device_routes = Router::new()
             .route("/getAllStatus", post(get_all_status))
             .route("/getAllNodeStates", post(get_all_node_states))
@@ -82,10 +84,12 @@ impl WebServer {
             .route("/read", post(read_device))
             .route("/readMany", post(read_many))
             .route("/scene", post(execute_scene))
+            .route("/sceneStatus", get(get_scene_status))
             .route("/executeCommand", post(execute_channel_command))
             .route("/callMethod", post(call_method))
             .route("/getMethods", post(get_methods))
             .route("/batchRead", post(batch_read))
+            .route("/config", get(move || get_config(config_clone.clone())))
             .layer(Extension(controller));
 
         // 如果有数据库，添加需要数据库的路由
@@ -96,8 +100,13 @@ impl WebServer {
         }
 
         // 基础应用路由
+        let config_path = self.config_path.clone();
+        let config_for_save = self.config.clone();
         let mut app = Router::new()
             .route("/", get(hello))
+            .route(&format!("{}/debug", API_PREFIX), get(debug_console_page))
+            .route(&format!("{}/config-manager", API_PREFIX), get(config_manager_page))
+            .route(&format!("{}/config/save", API_PREFIX), post(move |body| save_config(body, config_path.clone())))
             .nest(&format!("{}/device", API_PREFIX), device_routes)
             .layer(CorsLayer::permissive());
 
@@ -235,4 +244,77 @@ async fn hello() -> &'static str {
 /// 文件管理器页面
 async fn file_manager_page() -> Html<&'static str> {
     Html(FILE_MANAGER_HTML)
+}
+
+/// 调试控制台页面
+async fn debug_console_page() -> Html<&'static str> {
+    Html(DEBUG_CONSOLE_HTML)
+}
+
+/// 获取配置信息（用于调试控制台）
+async fn get_config(config: Config) -> axum::Json<serde_json::Value> {
+    tracing::info!("[调试] 获取配置信息请求");
+    
+    let response = serde_json::json!({
+        "state": 0,
+        "message": "成功",
+        "data": {
+            "nodes": config.nodes,
+            "scenes": config.scenes,
+            "channels": config.channels.iter().map(|c| {
+                serde_json::json!({
+                    "channel_id": c.channel_id,
+                    "enable": c.enable,
+                    "statute": c.statute
+                })
+            }).collect::<Vec<_>>()
+        }
+    });
+    
+    tracing::info!("[调试] 返回配置: {} 个节点, {} 个场景, {} 个通道", 
+        config.nodes.len(), config.scenes.len(), config.channels.len());
+    
+    axum::Json(response)
+}
+
+/// 配置管理页面
+async fn config_manager_page() -> Html<&'static str> {
+    Html(CONFIG_MANAGER_HTML)
+}
+
+/// 保存配置到文件
+async fn save_config(
+    axum::Json(payload): axum::Json<serde_json::Value>,
+    config_path: String,
+) -> axum::Json<serde_json::Value> {
+    tracing::info!("[配置] 保存配置请求");
+    
+    // 将配置写入文件
+    match serde_json::to_string_pretty(&payload) {
+        Ok(json_str) => {
+            match std::fs::write(&config_path, json_str) {
+                Ok(_) => {
+                    tracing::info!("[配置] 配置已保存到: {}", config_path);
+                    axum::Json(serde_json::json!({
+                        "state": 0,
+                        "message": format!("配置已保存到 {}", config_path)
+                    }))
+                }
+                Err(e) => {
+                    tracing::error!("[配置] 保存失败: {}", e);
+                    axum::Json(serde_json::json!({
+                        "state": 1,
+                        "message": format!("保存失败: {}", e)
+                    }))
+                }
+            }
+        }
+        Err(e) => {
+            tracing::error!("[配置] 序列化失败: {}", e);
+            axum::Json(serde_json::json!({
+                "state": 1,
+                "message": format!("序列化失败: {}", e)
+            }))
+        }
+    }
 }

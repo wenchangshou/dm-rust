@@ -135,9 +135,9 @@ async fn main() -> Result<()> {
 
     // 启动Web服务器（HTTP控制接口）
     let web_server = if let Some(db) = database {
-        web::WebServer::with_database(cfg.clone(), device_controller.clone(), db)
+        web::WebServer::with_database(cfg.clone(), args.config.clone(), device_controller.clone(), db)
     } else {
-        web::WebServer::new(cfg.clone(), device_controller.clone())
+        web::WebServer::new(cfg.clone(), args.config.clone(), device_controller.clone())
     };
     let web_handle = tokio::spawn(async move {
         if let Err(e) = web_server.run().await {

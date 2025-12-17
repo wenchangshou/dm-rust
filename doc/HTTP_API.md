@@ -274,9 +274,58 @@ curl -X POST http://localhost:8080/device/executeScene \
   -d '{"name":"关机场景"}'
 ```
 
+**重要说明**:
+- 系统同一时间只允许执行一个场景
+- 如果有场景正在执行中，再次执行其他场景会返回错误
+- 可以通过 `/device/sceneStatus` 接口查询当前场景执行状态
+
 ---
 
-### 8. 执行通道命令
+### 8. 获取场景执行状态
+
+#### GET /device/sceneStatus
+
+获取当前场景执行状态，用于查询是否有场景正在执行及具体场景名称。
+
+**请求参数**: 无
+
+**响应示例**:
+```json
+// 没有场景正在执行
+{
+  "state": 0,
+  "message": "获取场景执行状态成功",
+  "data": {
+    "is_executing": false,
+    "current_scene": null
+  }
+}
+
+// 有场景正在执行
+{
+  "state": 0,
+  "message": "获取场景执行状态成功",
+  "data": {
+    "is_executing": true,
+    "current_scene": "开机场景"
+  }
+}
+```
+
+**使用示例**:
+```bash
+# 获取场景执行状态
+curl -X GET http://localhost:8080/device/sceneStatus
+```
+
+**应用场景**:
+- 在执行场景前检查是否有场景正在运行
+- 前端界面显示当前执行状态
+- 防止场景并发执行导致的冲突
+
+---
+
+### 9. 执行通道命令
 
 #### POST /device/executeCommand
 
@@ -317,7 +366,7 @@ curl -X POST http://localhost:8080/device/executeCommand \
 
 ---
 
-### 9. 调用自定义方法
+### 10. 调用自定义方法
 
 #### POST /device/callMethod
 
@@ -371,7 +420,7 @@ curl -X POST http://localhost:8080/device/callMethod \
 
 ---
 
-### 10. 获取通道支持的方法列表
+### 11. 获取通道支持的方法列表
 
 #### POST /device/getMethods
 
