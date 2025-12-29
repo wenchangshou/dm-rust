@@ -15,6 +15,7 @@ use tower_http::cors::CorsLayer;
 use crate::config::{Config, ResourceConfig};
 use crate::device::DeviceController;
 use crate::db::Database;
+use crate::tcp_simulator::TcpSimulatorManager;
 
 // 导入子模块
 use super::device_api::{
@@ -39,6 +40,11 @@ use super::resource_api::{
     serve_static_resource,
 };
 use super::swagger::swagger_routes;
+use super::tcp_simulator_api::{
+    get_protocols, create_simulator, list_simulators, get_simulator,
+    delete_simulator, start_simulator, stop_simulator, update_simulator_state,
+    trigger_fault, clear_fault, set_online,
+};
 
 /// API 路由前缀
 const API_PREFIX: &str = "/lspcapi";
@@ -131,6 +137,28 @@ impl WebServer {
                     .route(&format!("{}/files", API_PREFIX), get(file_manager_page))
                     .layer(Extension(file_manager_state));
             }
+        }
+
+        // TCP 模拟器路由
+        {
+            tracing::info!("TCP 模拟器功能已启用");
+            let simulator_manager = Arc::new(TcpSimulatorManager::new());
+
+            let simulator_routes = Router::new()
+                .route("/protocols", get(get_protocols))
+                .route("/create", post(create_simulator))
+                .route("/list", get(list_simulators))
+                .route("/:id", get(get_simulator))
+                .route("/:id", delete(delete_simulator))
+                .route("/:id/start", post(start_simulator))
+                .route("/:id/stop", post(stop_simulator))
+                .route("/:id/state", post(update_simulator_state))
+                .route("/:id/fault", post(trigger_fault))
+                .route("/:id/clear-fault", post(clear_fault))
+                .route("/:id/online", post(set_online))
+                .layer(Extension(simulator_manager));
+
+            app = app.nest(&format!("{}/tcp-simulator", API_PREFIX), simulator_routes);
         }
 
         // 数据库 API 路由（可选）

@@ -9,6 +9,7 @@ mod utils;
 mod web;
 mod db;
 mod service;
+mod tcp_simulator;
 
 /// 设备控制系统
 #[derive(Parser, Debug)]

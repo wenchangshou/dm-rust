@@ -6,5 +6,6 @@ pub mod file_page;
 pub mod db_api;
 pub mod resource_api;
 pub mod swagger;
+pub mod tcp_simulator_api;
 
 pub use server::WebServer;
