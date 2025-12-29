@@ -7,8 +7,10 @@
 /// 2. 实现 `ProtocolHandler` trait
 /// 3. 在 `ProtocolRegistry::new()` 中注册
 
+mod modbus;
 mod scene_loader;
 
+pub use modbus::{ModbusHandler, ModbusValues, RegisterConfig, RegisterType, SlaveConfig};
 pub use scene_loader::SceneLoaderHandler;
 
 use std::collections::HashMap;
@@ -34,10 +36,10 @@ impl ProtocolRegistry {
 
         // 注册内置协议
         registry.register("scene_loader", || Arc::new(SceneLoaderHandler::new()));
+        registry.register("modbus", || Arc::new(ModbusHandler::new()));
 
         // TODO: 添加更多协议
         // registry.register("pjlink", || Arc::new(PjlinkHandler::new()));
-        // registry.register("modbus", || Arc::new(ModbusHandler::new()));
 
         registry
     }

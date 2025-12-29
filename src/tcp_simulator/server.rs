@@ -160,6 +160,17 @@ impl TcpSimulatorServer {
     ) {
         let mut shutdown_rx = shutdown_tx.subscribe();
 
+        // 启动值生成器任务（如果是 Modbus 协议）
+        let generator_handle = if handler.name() == "modbus" {
+            let state_clone = state.clone();
+            let mut gen_shutdown_rx = shutdown_tx.subscribe();
+            Some(tokio::spawn(async move {
+                Self::run_generator_tick(state_clone, &mut gen_shutdown_rx).await;
+            }))
+        } else {
+            None
+        };
+
         loop {
             tokio::select! {
                 // 等待新连接
@@ -204,10 +215,43 @@ impl TcpSimulatorServer {
             }
         }
 
+        // 停止生成器任务
+        if let Some(handle) = generator_handle {
+            handle.abort();
+        }
+
         // 更新状态
         {
             let mut status_guard = status.write().await;
             *status_guard = SimulatorStatus::Stopped;
+        }
+    }
+
+    /// 值生成器定时任务
+    async fn run_generator_tick(
+        state: Arc<RwLock<SimulatorState>>,
+        shutdown_rx: &mut broadcast::Receiver<()>,
+    ) {
+        use super::protocols::ModbusValues;
+
+        // 每 100ms 检查一次生成器
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    let mut state_guard = state.write().await;
+                    let mut values = ModbusValues::from_state(&state_guard);
+                    if values.tick_generators() {
+                        values.save_to_state(&mut state_guard);
+                    }
+                }
+
+                _ = shutdown_rx.recv() => {
+                    debug!("生成器任务收到停止信号");
+                    break;
+                }
+            }
         }
     }
 
@@ -250,14 +294,21 @@ impl TcpSimulatorServer {
                         Ok(n) => {
                             debug!("收到 {} 字节: {:02x?}", n, &buffer[..n]);
 
-                            // 更新统计
+                            let received_data = &buffer[..n];
+
+                            // 更新统计并记录接收报文
                             {
                                 let mut state_guard = state.write().await;
                                 state_guard.stats.record_received(n as u64);
+                                state_guard.packet_monitor.record_received(
+                                    &peer_addr,
+                                    received_data,
+                                    None,
+                                );
                             }
 
                             // 累积数据
-                            accumulated_data.extend_from_slice(&buffer[..n]);
+                            accumulated_data.extend_from_slice(received_data);
 
                             // 处理数据
                             let result = {
@@ -269,10 +320,15 @@ impl TcpSimulatorServer {
                                 HandleResult::Response(response) => {
                                     debug!("发送响应: {:02x?}", response);
 
-                                    // 更新统计
+                                    // 更新统计并记录发送报文
                                     {
                                         let mut state_guard = state.write().await;
                                         state_guard.stats.record_sent(response.len() as u64);
+                                        state_guard.packet_monitor.record_sent(
+                                            &peer_addr,
+                                            &response,
+                                            None,
+                                        );
                                     }
 
                                     if let Err(e) = stream.write_all(&response).await {

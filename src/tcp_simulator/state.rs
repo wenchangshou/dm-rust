@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// 模拟器配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +44,187 @@ pub enum SimulatorStatus {
 impl Default for SimulatorStatus {
     fn default() -> Self {
         Self::Stopped
+    }
+}
+
+// ============ 报文监控 ============
+
+/// 报文方向
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PacketDirection {
+    /// 接收到的数据
+    Received,
+    /// 发送的数据
+    Sent,
+}
+
+/// 报文记录
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PacketRecord {
+    /// 唯一 ID
+    pub id: u64,
+    /// 时间戳
+    pub timestamp: DateTime<Utc>,
+    /// 方向
+    pub direction: PacketDirection,
+    /// 客户端地址
+    pub peer_addr: String,
+    /// 原始数据（十六进制字符串）
+    pub hex_data: String,
+    /// 数据大小（字节）
+    pub size: usize,
+    /// 协议解析信息（可选，协议特定）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parsed: Option<Value>,
+}
+
+impl PacketRecord {
+    /// 创建新的报文记录
+    pub fn new(
+        id: u64,
+        direction: PacketDirection,
+        peer_addr: String,
+        data: &[u8],
+        parsed: Option<Value>,
+    ) -> Self {
+        Self {
+            id,
+            timestamp: Utc::now(),
+            direction,
+            peer_addr,
+            hex_data: hex::encode(data),
+            size: data.len(),
+            parsed,
+        }
+    }
+}
+
+/// 报文监控器
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PacketMonitor {
+    /// 是否启用监控
+    #[serde(default = "default_monitor_enabled")]
+    pub enabled: bool,
+    /// 最大记录数量
+    #[serde(default = "default_max_packets")]
+    pub max_packets: usize,
+    /// 报文记录列表
+    #[serde(default)]
+    pub packets: VecDeque<PacketRecord>,
+    /// 下一个报文 ID
+    #[serde(default)]
+    next_id: u64,
+}
+
+fn default_monitor_enabled() -> bool {
+    true
+}
+
+fn default_max_packets() -> usize {
+    1000
+}
+
+impl Default for PacketMonitor {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_packets: 1000,
+            packets: VecDeque::new(),
+            next_id: 1,
+        }
+    }
+}
+
+impl PacketMonitor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 记录报文
+    pub fn record(
+        &mut self,
+        direction: PacketDirection,
+        peer_addr: &str,
+        data: &[u8],
+        parsed: Option<Value>,
+    ) {
+        if !self.enabled || data.is_empty() {
+            return;
+        }
+
+        let record = PacketRecord::new(
+            self.next_id,
+            direction,
+            peer_addr.to_string(),
+            data,
+            parsed,
+        );
+        self.next_id += 1;
+
+        self.packets.push_back(record);
+
+        // 超过最大数量时移除旧记录
+        while self.packets.len() > self.max_packets {
+            self.packets.pop_front();
+        }
+    }
+
+    /// 记录接收的报文
+    pub fn record_received(&mut self, peer_addr: &str, data: &[u8], parsed: Option<Value>) {
+        self.record(PacketDirection::Received, peer_addr, data, parsed);
+    }
+
+    /// 记录发送的报文
+    pub fn record_sent(&mut self, peer_addr: &str, data: &[u8], parsed: Option<Value>) {
+        self.record(PacketDirection::Sent, peer_addr, data, parsed);
+    }
+
+    /// 获取所有报文
+    pub fn get_packets(&self) -> Vec<PacketRecord> {
+        self.packets.iter().cloned().collect()
+    }
+
+    /// 获取最近 N 条报文
+    pub fn get_recent(&self, count: usize) -> Vec<PacketRecord> {
+        self.packets.iter().rev().take(count).cloned().collect()
+    }
+
+    /// 获取指定 ID 之后的报文（用于增量获取）
+    pub fn get_after(&self, after_id: u64) -> Vec<PacketRecord> {
+        self.packets
+            .iter()
+            .filter(|p| p.id > after_id)
+            .cloned()
+            .collect()
+    }
+
+    /// 清空所有报文
+    pub fn clear(&mut self) {
+        self.packets.clear();
+    }
+
+    /// 设置是否启用
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    /// 设置最大记录数
+    pub fn set_max_packets(&mut self, max: usize) {
+        self.max_packets = max;
+        while self.packets.len() > max {
+            self.packets.pop_front();
+        }
+    }
+
+    /// 获取报文数量
+    pub fn len(&self) -> usize {
+        self.packets.len()
+    }
+
+    /// 是否为空
+    pub fn is_empty(&self) -> bool {
+        self.packets.is_empty()
     }
 }
 
@@ -102,6 +283,9 @@ pub struct SimulatorState {
     /// 连接统计
     #[serde(default)]
     pub stats: ConnectionStats,
+    /// 报文监控器
+    #[serde(default)]
+    pub packet_monitor: PacketMonitor,
 }
 
 impl Default for SimulatorState {
@@ -111,6 +295,7 @@ impl Default for SimulatorState {
             fault: None,
             values: HashMap::new(),
             stats: ConnectionStats::new(),
+            packet_monitor: PacketMonitor::new(),
         }
     }
 }

@@ -44,6 +44,12 @@ use super::tcp_simulator_api::{
     get_protocols, create_simulator, list_simulators, get_simulator,
     delete_simulator, start_simulator, stop_simulator, update_simulator_state,
     trigger_fault, clear_fault, set_online,
+    // Modbus API
+    get_modbus_slaves, add_modbus_slave, delete_modbus_slave,
+    set_modbus_register, delete_modbus_register, update_modbus_register_value,
+    batch_update_modbus_registers,
+    // 报文监控 API
+    get_packets, clear_packets, set_packet_monitor_settings,
 };
 
 /// API 路由前缀
@@ -144,6 +150,18 @@ impl WebServer {
             tracing::info!("TCP 模拟器功能已启用");
             let simulator_manager = Arc::new(TcpSimulatorManager::new());
 
+            // 从持久化存储加载模拟器
+            match simulator_manager.load_from_persistence().await {
+                Ok(count) => {
+                    if count > 0 {
+                        tracing::info!("已从持久化存储加载 {} 个模拟器", count);
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("加载持久化模拟器失败: {}", e);
+                }
+            }
+
             let simulator_routes = Router::new()
                 .route("/protocols", get(get_protocols))
                 .route("/create", post(create_simulator))
@@ -156,6 +174,18 @@ impl WebServer {
                 .route("/:id/fault", post(trigger_fault))
                 .route("/:id/clear-fault", post(clear_fault))
                 .route("/:id/online", post(set_online))
+                // Modbus 特定路由
+                .route("/:id/modbus/slaves", get(get_modbus_slaves))
+                .route("/:id/modbus/slave", post(add_modbus_slave))
+                .route("/:id/modbus/slave/:slave_id", delete(delete_modbus_slave))
+                .route("/:id/modbus/register", post(set_modbus_register))
+                .route("/:id/modbus/register/delete", post(delete_modbus_register))
+                .route("/:id/modbus/register/value", post(update_modbus_register_value))
+                .route("/:id/modbus/registers/batch", post(batch_update_modbus_registers))
+                // 报文监控路由
+                .route("/:id/packets", get(get_packets))
+                .route("/:id/packets", delete(clear_packets))
+                .route("/:id/packets/settings", post(set_packet_monitor_settings))
                 .layer(Extension(simulator_manager));
 
             app = app.nest(&format!("{}/tcp-simulator", API_PREFIX), simulator_routes);

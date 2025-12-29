@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { SimulatorInfo, ProtocolInfo } from '@/types/simulator'
+import type {
+  SimulatorInfo,
+  ProtocolInfo,
+  ModbusSlaveConfig,
+  AddModbusSlaveRequest,
+  SetModbusRegisterRequest,
+  DeleteModbusRegisterRequest,
+  UpdateModbusRegisterRequest,
+  BatchUpdateModbusRegistersRequest,
+} from '@/types/simulator'
 import * as simulatorApi from '@/api/simulator'
 
 export const useSimulatorStore = defineStore('simulator', () => {
@@ -43,6 +52,26 @@ export const useSimulatorStore = defineStore('simulator', () => {
       currentSimulator.value = await simulatorApi.getSimulator(id)
     } finally {
       loading.value = false
+    }
+  }
+
+  // 静默刷新，不触发 loading 状态，用于自动刷新场景
+  async function refreshSimulatorSilently(id: string) {
+    try {
+      const data = await simulatorApi.getSimulator(id)
+      // 只更新变化的部分，避免整体替换导致闪屏
+      if (currentSimulator.value && currentSimulator.value.id === id) {
+        // 深度更新 state.values
+        currentSimulator.value.state.values = data.state.values
+        currentSimulator.value.state.stats = data.state.stats
+        currentSimulator.value.state.online = data.state.online
+        currentSimulator.value.state.fault = data.state.fault
+        currentSimulator.value.status = data.status
+      } else {
+        currentSimulator.value = data
+      }
+    } catch {
+      // 静默刷新忽略错误
     }
   }
 
@@ -104,12 +133,75 @@ export const useSimulatorStore = defineStore('simulator', () => {
     }
   }
 
+  // ============ Modbus 相关状态和方法 ============
+
+  const modbusSlaves = ref<ModbusSlaveConfig[]>([])
+
+  async function fetchModbusSlaves(id: string) {
+    modbusSlaves.value = await simulatorApi.getModbusSlaves(id)
+  }
+
+  async function addModbusSlave(id: string, data: AddModbusSlaveRequest) {
+    const updated = await simulatorApi.addModbusSlave(id, data)
+    updateSimulatorInList(updated)
+    if (currentSimulator.value?.id === id) {
+      currentSimulator.value = updated
+    }
+    return updated
+  }
+
+  async function deleteModbusSlave(id: string, slaveId: number) {
+    const updated = await simulatorApi.deleteModbusSlave(id, slaveId)
+    updateSimulatorInList(updated)
+    if (currentSimulator.value?.id === id) {
+      currentSimulator.value = updated
+    }
+    return updated
+  }
+
+  async function setModbusRegister(id: string, data: SetModbusRegisterRequest) {
+    const updated = await simulatorApi.setModbusRegister(id, data)
+    updateSimulatorInList(updated)
+    if (currentSimulator.value?.id === id) {
+      currentSimulator.value = updated
+    }
+    return updated
+  }
+
+  async function deleteModbusRegister(id: string, data: DeleteModbusRegisterRequest) {
+    const updated = await simulatorApi.deleteModbusRegister(id, data)
+    updateSimulatorInList(updated)
+    if (currentSimulator.value?.id === id) {
+      currentSimulator.value = updated
+    }
+    return updated
+  }
+
+  async function updateModbusRegisterValue(id: string, data: UpdateModbusRegisterRequest) {
+    const updated = await simulatorApi.updateModbusRegisterValue(id, data)
+    updateSimulatorInList(updated)
+    if (currentSimulator.value?.id === id) {
+      currentSimulator.value = updated
+    }
+    return updated
+  }
+
+  async function batchUpdateModbusRegisters(id: string, data: BatchUpdateModbusRegistersRequest) {
+    const updated = await simulatorApi.batchUpdateModbusRegisters(id, data)
+    updateSimulatorInList(updated)
+    if (currentSimulator.value?.id === id) {
+      currentSimulator.value = updated
+    }
+    return updated
+  }
+
   return {
     // 状态
     simulators,
     protocols,
     loading,
     currentSimulator,
+    modbusSlaves,
     // 计算属性
     runningCount,
     stoppedCount,
@@ -118,6 +210,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     fetchSimulators,
     fetchProtocols,
     fetchSimulator,
+    refreshSimulatorSilently,
     createSimulator,
     deleteSimulator,
     startSimulator,
@@ -125,5 +218,13 @@ export const useSimulatorStore = defineStore('simulator', () => {
     setOnline,
     triggerFault,
     clearFault,
+    // Modbus 方法
+    fetchModbusSlaves,
+    addModbusSlave,
+    deleteModbusSlave,
+    setModbusRegister,
+    deleteModbusRegister,
+    updateModbusRegisterValue,
+    batchUpdateModbusRegisters,
   }
 })

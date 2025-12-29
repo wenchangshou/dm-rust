@@ -133,8 +133,15 @@
         </el-form>
       </el-card>
 
-      <!-- 协议状态值 -->
-      <el-card style="margin-top: 20px">
+      <!-- Modbus 模拟器专用面板 -->
+      <ModbusSimulatorPanel
+        v-if="isModbusProtocol"
+        :simulator-id="id"
+        style="margin-top: 20px"
+      />
+
+      <!-- 其他协议状态值 -->
+      <el-card v-else style="margin-top: 20px">
         <template #header>
           <span>协议状态值</span>
         </template>
@@ -148,6 +155,13 @@
         </el-table>
         <el-empty v-if="stateValues.length === 0" description="暂无状态值" />
       </el-card>
+
+      <!-- 报文监控（所有协议通用） -->
+      <PacketMonitorPanel
+        v-if="simulator.status === 'running'"
+        :simulator-id="id"
+        style="margin-top: 20px"
+      />
     </template>
   </div>
 </template>
@@ -159,6 +173,8 @@ import { ArrowLeft, VideoPlay, VideoPause, Refresh } from '@element-plus/icons-v
 import { ElMessage } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
 import StatusBadge from '@/components/common/StatusBadge.vue'
+import ModbusSimulatorPanel from '@/components/simulator/ModbusSimulatorPanel.vue'
+import PacketMonitorPanel from '@/components/simulator/PacketMonitorPanel.vue'
 
 const props = defineProps<{
   id: string
@@ -170,6 +186,11 @@ const store = useSimulatorStore()
 const simulator = computed(() => store.currentSimulator)
 const isOnline = ref(true)
 const selectedFault = ref('')
+
+const isModbusProtocol = computed(() => {
+  const protocol = simulator.value?.protocol?.toLowerCase() || ''
+  return protocol.includes('modbus')
+})
 
 const stateValues = computed(() => {
   if (!simulator.value) return []

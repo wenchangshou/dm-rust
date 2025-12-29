@@ -7,18 +7,17 @@
       "enable": true,
       "channel_id": 1,
       "statute": "mock",
-      "description": "模拟通道 - 灯光和投影",
+      "description": "",
       "arguments": {
         "delay_ms": 50,
         "error_rate": 0.0,
         "initial_values": {
-          "1": 100,
-          "2": 200,
-          "3": 50,
-          "4": 75,
-          "10": 1,
-          "11": 0,
-          "12": 1
+          "1": 1,
+          "2": 2,
+          "3": 3,
+          "4": 4,
+          "5": 5,
+          "6": 6
         }
       }
     },

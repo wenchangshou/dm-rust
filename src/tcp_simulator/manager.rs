@@ -5,10 +5,12 @@
 use dashmap::DashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use uuid::Uuid;
 
-use super::protocols::ProtocolRegistry;
+use super::persistence::{PersistenceManager, PersistedSimulator};
+use super::protocols::{ModbusValues, ProtocolRegistry};
+use super::state::PacketRecord;
 use super::server::{ServerConfig, TcpSimulatorServer};
 use super::state::{ProtocolInfo, SimulatorInfo, SimulatorState, SimulatorStatus, TcpSimulatorConfig};
 
@@ -24,6 +26,8 @@ pub struct TcpSimulatorManager {
     simulators: DashMap<String, Arc<SimulatorInstance>>,
     /// 协议注册表
     registry: ProtocolRegistry,
+    /// 持久化管理器
+    persistence: PersistenceManager,
 }
 
 impl TcpSimulatorManager {
@@ -32,6 +36,68 @@ impl TcpSimulatorManager {
         Self {
             simulators: DashMap::new(),
             registry: ProtocolRegistry::new(),
+            persistence: PersistenceManager::with_default_path(),
+        }
+    }
+
+    /// 使用自定义持久化路径创建
+    pub fn with_persistence_path(path: &str) -> Self {
+        Self {
+            simulators: DashMap::new(),
+            registry: ProtocolRegistry::new(),
+            persistence: PersistenceManager::new(path),
+        }
+    }
+
+    /// 从持久化存储加载所有模拟器
+    pub async fn load_from_persistence(&self) -> Result<usize, String> {
+        let data = self.persistence.load().await?;
+        let mut loaded = 0;
+
+        for persisted in data.simulators {
+            // 创建模拟器
+            match self.create_internal(persisted.config.clone(), persisted.values.clone()).await {
+                Ok(info) => {
+                    // 如果需要自动启动
+                    if persisted.auto_start {
+                        if let Err(e) = self.start(&info.id).await {
+                            warn!("自动启动模拟器 {} 失败: {}", info.id, e);
+                        }
+                    }
+                    loaded += 1;
+                }
+                Err(e) => {
+                    error!("加载模拟器 {} 失败: {}", persisted.config.id, e);
+                }
+            }
+        }
+
+        info!("从持久化存储加载了 {} 个模拟器", loaded);
+        Ok(loaded)
+    }
+
+    /// 保存模拟器到持久化存储
+    async fn persist_simulator(&self, id: &str, auto_start: bool) {
+        if let Some(instance) = self.simulators.get(id) {
+            let server = instance.server.read().await;
+            let state = server.get_state().await;
+
+            let persisted = PersistedSimulator {
+                config: instance.config.clone(),
+                values: state.values.clone(),
+                auto_start,
+            };
+
+            if let Err(e) = self.persistence.upsert_simulator(persisted).await {
+                error!("持久化模拟器 {} 失败: {}", id, e);
+            }
+        }
+    }
+
+    /// 从持久化存储删除模拟器
+    async fn unpersist_simulator(&self, id: &str) {
+        if let Err(e) = self.persistence.remove_simulator(id).await {
+            error!("从持久化存储删除模拟器 {} 失败: {}", id, e);
         }
     }
 
@@ -40,8 +106,12 @@ impl TcpSimulatorManager {
         self.registry.get_protocol_infos()
     }
 
-    /// 创建模拟器
-    pub async fn create(&self, mut config: TcpSimulatorConfig) -> Result<SimulatorInfo, String> {
+    /// 创建模拟器（内部方法，支持预设的 values）
+    async fn create_internal(
+        &self,
+        mut config: TcpSimulatorConfig,
+        initial_values: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<SimulatorInfo, String> {
         // 生成 ID
         if config.id.is_empty() {
             config.id = format!("sim_{}", Uuid::new_v4().to_string().split('-').next().unwrap());
@@ -76,7 +146,11 @@ impl TcpSimulatorManager {
         };
 
         // 创建初始状态
-        let initial_state = SimulatorState::from_initial(&config.initial_state);
+        let mut initial_state = SimulatorState::from_initial(&config.initial_state);
+        // 合并预设的 values（从持久化加载）
+        for (key, value) in initial_values {
+            initial_state.values.insert(key, value);
+        }
 
         // 创建服务器
         let server = TcpSimulatorServer::new(server_config, handler, initial_state.clone());
@@ -94,6 +168,16 @@ impl TcpSimulatorManager {
         Ok(SimulatorInfo::new(&config, SimulatorStatus::Stopped, initial_state))
     }
 
+    /// 创建模拟器
+    pub async fn create(&self, config: TcpSimulatorConfig) -> Result<SimulatorInfo, String> {
+        let info = self.create_internal(config, std::collections::HashMap::new()).await?;
+
+        // 持久化保存
+        self.persist_simulator(&info.id, true).await;
+
+        Ok(info)
+    }
+
     /// 删除模拟器
     pub async fn delete(&self, id: &str) -> Result<(), String> {
         // 获取实例
@@ -106,6 +190,9 @@ impl TcpSimulatorManager {
             let mut server = instance.server.write().await;
             let _ = server.stop().await;
         }
+
+        // 从持久化存储删除
+        self.unpersist_simulator(id).await;
 
         info!("模拟器已删除: {}", id);
         Ok(())
@@ -200,6 +287,111 @@ impl TcpSimulatorManager {
     /// 设置在线状态
     pub async fn set_online(&self, id: &str, online: bool) -> Result<SimulatorInfo, String> {
         self.update_state(id, Some(online), None).await
+    }
+
+    /// 更新 Modbus 状态
+    ///
+    /// 通用方法，允许传入闭包来修改 ModbusValues
+    pub async fn update_modbus_state<F>(&self, id: &str, f: F) -> Result<SimulatorInfo, String>
+    where
+        F: FnOnce(&mut ModbusValues) -> Result<(), String>,
+    {
+        // 先执行更新
+        {
+            let instance = self.simulators.get(id).ok_or_else(|| {
+                format!("Simulator '{}' not found", id)
+            })?;
+
+            let server = instance.server.read().await;
+
+            // 获取当前状态并更新
+            let mut update_result = Ok(());
+            server
+                .update_state(|state| {
+                    let mut values = ModbusValues::from_state(state);
+                    update_result = f(&mut values);
+                    if update_result.is_ok() {
+                        values.save_to_state(state);
+                    }
+                })
+                .await;
+
+            update_result?;
+        }
+
+        // 持久化保存状态变更
+        self.persist_simulator(id, true).await;
+
+        // 返回最新状态
+        self.get(id).await.ok_or_else(|| format!("Simulator '{}' not found", id))
+    }
+
+    // ============ 报文监控方法 ============
+
+    /// 获取报文列表
+    pub async fn get_packets(&self, id: &str, after_id: Option<u64>, limit: Option<usize>) -> Result<Vec<PacketRecord>, String> {
+        let instance = self.simulators.get(id).ok_or_else(|| {
+            format!("Simulator '{}' not found", id)
+        })?;
+
+        let server = instance.server.read().await;
+        let state = server.get_state().await;
+
+        let packets = if let Some(after) = after_id {
+            state.packet_monitor.get_after(after)
+        } else if let Some(n) = limit {
+            state.packet_monitor.get_recent(n)
+        } else {
+            state.packet_monitor.get_packets()
+        };
+
+        Ok(packets)
+    }
+
+    /// 清空报文记录
+    pub async fn clear_packets(&self, id: &str) -> Result<(), String> {
+        let instance = self.simulators.get(id).ok_or_else(|| {
+            format!("Simulator '{}' not found", id)
+        })?;
+
+        let server = instance.server.read().await;
+        server.update_state(|state| {
+            state.packet_monitor.clear();
+        }).await;
+
+        Ok(())
+    }
+
+    /// 设置报文监控开关
+    pub async fn set_packet_monitor_enabled(&self, id: &str, enabled: bool) -> Result<SimulatorInfo, String> {
+        let instance = self.simulators.get(id).ok_or_else(|| {
+            format!("Simulator '{}' not found", id)
+        })?;
+
+        let server = instance.server.read().await;
+        server.update_state(|state| {
+            state.packet_monitor.set_enabled(enabled);
+        }).await;
+
+        let status = server.get_status().await;
+        let state = server.get_state().await;
+        Ok(SimulatorInfo::new(&instance.config, status, state))
+    }
+
+    /// 设置最大报文记录数
+    pub async fn set_packet_monitor_max(&self, id: &str, max: usize) -> Result<SimulatorInfo, String> {
+        let instance = self.simulators.get(id).ok_or_else(|| {
+            format!("Simulator '{}' not found", id)
+        })?;
+
+        let server = instance.server.read().await;
+        server.update_state(|state| {
+            state.packet_monitor.set_max_packets(max);
+        }).await;
+
+        let status = server.get_status().await;
+        let state = server.get_state().await;
+        Ok(SimulatorInfo::new(&instance.config, status, state))
     }
 
     /// 停止所有模拟器

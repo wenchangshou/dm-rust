@@ -45,6 +45,7 @@
 
 pub mod handler;
 pub mod manager;
+pub mod persistence;
 pub mod protocols;
 pub mod server;
 pub mod state;
