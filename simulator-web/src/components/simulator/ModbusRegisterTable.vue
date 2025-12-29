@@ -1,9 +1,9 @@
 <template>
   <div class="register-table">
-    <el-table :data="sortedRegisters" stripe v-show="registers.length > 0" :row-key="getRowKey">
+    <el-table :data="sortedRegisters" v-show="registers.length > 0" :row-key="getRowKey">
       <el-table-column prop="address" label="地址" width="100">
         <template #default="{ row }">
-          <code>{{ formatAddress(row.address) }}</code>
+          <code class="address-code">{{ formatAddress(row.address) }}</code>
         </template>
       </el-table-column>
 
@@ -34,39 +34,33 @@
         <template #default="{ row }">
           <!-- Bit 类型使用开关 -->
           <template v-if="isBitType(row)">
-            <el-switch
-              :model-value="!!row.value"
-              :disabled="isReadonly"
-              @change="(val: boolean) => emit('valueChange', row, val)"
-              active-text="ON"
-              inactive-text="OFF"
-              inline-prompt
-            />
+            <el-switch :model-value="!!row.value" :disabled="isReadonly"
+              @change="(val: boolean) => emit('valueChange', row, val)" active-text="ON" inactive-text="OFF"
+              inline-prompt />
           </template>
           <!-- 数值类型使用输入框 -->
           <template v-else>
-            <el-input-number
-              :model-value="row.value as number"
-              :disabled="isReadonly"
-              :precision="row.dataType === 'float32' ? 4 : 0"
-              size="small"
-              controls-position="right"
-              @change="(val: number) => emit('valueChange', row, val ?? 0)"
-            />
+            <el-input-number :model-value="row.value as number" :disabled="isReadonly"
+              :precision="row.dataType === 'float32' ? 4 : 0" size="small" controls-position="right"
+              @change="(val: number) => emit('valueChange', row, val ?? 0)" />
           </template>
         </template>
       </el-table-column>
 
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
-          <el-button-group size="small">
+          <div class="action-buttons">
             <el-button text type="primary" @click="emit('edit', row)">
-              <el-icon><Edit /></el-icon>
+              <el-icon>
+                <Edit />
+              </el-icon>
             </el-button>
             <el-button text type="danger" @click="emit('delete', row)">
-              <el-icon><Delete /></el-icon>
+              <el-icon>
+                <Delete />
+              </el-icon>
             </el-button>
-          </el-button-group>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -186,16 +180,23 @@ function getGeneratorTagType(mode: GeneratorMode): 'primary' | 'success' | 'warn
 
 <style lang="scss" scoped>
 .register-table {
-  code {
-    background: #f5f7fa;
+  .address-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg-input);
     padding: 2px 6px;
     border-radius: 4px;
-    font-family: monospace;
+    color: var(--text-secondary);
   }
 
   .text-muted {
-    color: #909399;
+    color: var(--text-muted);
     font-size: 12px;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 4px;
   }
 }
 </style>

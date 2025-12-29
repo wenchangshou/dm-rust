@@ -23,10 +23,10 @@
                   "min": 0.0,
                   "mode": "random"
                 },
-                "lastUpdate": 1766988003836,
+                "lastUpdate": 1766989469436,
                 "readonly": false,
                 "type": "holding_register",
-                "value": 5328
+                "value": 4884
               },
               {
                 "address": 0,
@@ -38,10 +38,10 @@
                   "mode": "sine",
                   "period": 1000
                 },
-                "lastUpdate": 1766988004536,
+                "lastUpdate": 1766989469436,
                 "readonly": false,
                 "type": "holding_register",
-                "value": 3879
+                "value": 6957
               },
               {
                 "address": 0,
@@ -52,12 +52,17 @@
                   "min": 0.0,
                   "mode": "random"
                 },
+                "lastUpdate": 1766989469436,
                 "readonly": false,
                 "type": "coil",
                 "value": false
               }
             ],
             "slaveId": 1
+          },
+          {
+            "registers": [],
+            "slaveId": 2
           }
         ]
       },

@@ -3,53 +3,73 @@
 //! 负责路由配置和服务器启动
 
 use axum::{
-    routing::{get, post, put, delete},
-    Router,
     extract::Extension,
     response::Html,
+    routing::{delete, get, post, put},
+    Router,
 };
-use std::sync::Arc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 use crate::config::{Config, ResourceConfig};
-use crate::device::DeviceController;
 use crate::db::Database;
+use crate::device::DeviceController;
 use crate::tcp_simulator::TcpSimulatorManager;
 
 // 导入子模块
+use super::db_api::{
+    create_screen, delete_material, delete_screen, get_material, get_materials_by_screen_id,
+    get_screen, list_materials, list_screens, replace_all_materials, replace_all_screens,
+    set_screen_active, update_material, update_screen,
+};
 use super::device_api::{
-    get_all_status, get_all_node_states, get_node_state,
-    read_device, read_many, write_device, write_many,
-    execute_scene, get_scene_status, execute_channel_command, call_method, get_methods, batch_read,
-    get_all_settings,
+    batch_read, call_method, execute_channel_command, execute_scene, get_all_node_states,
+    get_all_settings, get_all_status, get_methods, get_node_state, get_scene_status, read_device,
+    read_many, write_device, write_many,
 };
 use super::file_api::{
-    FileManagerState, file_list, file_upload, file_download, file_delete,
-    file_mkdir, file_rename, file_info, file_preview, file_view,
+    file_delete, file_download, file_info, file_list, file_mkdir, file_preview, file_rename,
+    file_upload, file_view, FileManagerState,
 };
-use super::file_page::{FILE_MANAGER_HTML, DEBUG_CONSOLE_HTML, CONFIG_MANAGER_HTML};
-use super::db_api::{
-    list_screens, get_screen, create_screen, update_screen, delete_screen, replace_all_screens,
-    set_screen_active,
-    list_materials, get_material, update_material, delete_material, replace_all_materials,
-    get_materials_by_screen_id,
-};
-use super::resource_api::{
-    ResourceManagerState, upload_material,
-    serve_static_resource,
-};
+use super::file_page::{CONFIG_MANAGER_HTML, DEBUG_CONSOLE_HTML, FILE_MANAGER_HTML};
+use super::resource_api::{serve_static_resource, upload_material, ResourceManagerState};
 use super::swagger::swagger_routes;
 use super::tcp_simulator_api::{
-    get_protocols, create_simulator, list_simulators, get_simulator,
-    delete_simulator, start_simulator, stop_simulator, update_simulator_state,
-    trigger_fault, clear_fault, set_online,
-    // Modbus API
-    get_modbus_slaves, add_modbus_slave, delete_modbus_slave,
-    set_modbus_register, delete_modbus_register, update_modbus_register_value,
+    add_modbus_slave,
     batch_update_modbus_registers,
+    clear_fault,
+    clear_packets,
+    create_from_template,
+    create_simulator,
+    delete_modbus_register,
+    delete_modbus_slave,
+    delete_simulator,
+    delete_template,
+    disconnect_client,
+    download_debug_log,
+    get_debug_status,
+    // Modbus API
+    get_modbus_slaves,
     // 报文监控 API
-    get_packets, clear_packets, set_packet_monitor_settings,
+    get_packets,
+    get_protocols,
+    get_simulator,
+    // 客户端连接 API
+    list_clients,
+    list_simulators,
+    list_templates,
+    save_as_template,
+    // Debug 模式 API
+    set_debug_mode,
+    set_modbus_register,
+    set_online,
+    set_packet_monitor_settings,
+    start_simulator,
+    stop_simulator,
+    trigger_fault,
+    update_modbus_register_value,
+    update_simulator_state,
 };
 
 /// API 路由前缀
@@ -69,20 +89,39 @@ impl WebServer {
     /// 创建新的 Web 服务器实例
     pub fn new(config: Config, config_path: String, controller: DeviceController) -> Self {
         let resource_config = config.resource.clone();
-        Self { config, config_path, controller, database: None, resource_config }
+        Self {
+            config,
+            config_path,
+            controller,
+            database: None,
+            resource_config,
+        }
     }
 
     /// 创建带数据库的 Web 服务器实例
-    pub fn with_database(config: Config, config_path: String, controller: DeviceController, database: Database) -> Self {
+    pub fn with_database(
+        config: Config,
+        config_path: String,
+        controller: DeviceController,
+        database: Database,
+    ) -> Self {
         let resource_config = config.resource.clone();
-        Self { config, config_path, controller, database: Some(Arc::new(database)), resource_config }
+        Self {
+            config,
+            config_path,
+            controller,
+            database: Some(Arc::new(database)),
+            resource_config,
+        }
     }
 
     /// 运行 Web 服务器
     pub async fn run(self) -> anyhow::Result<()> {
         let controller = Arc::new(self.controller);
         let file_config = self.config.file.clone();
-        let file_manager_state = FileManagerState { config: file_config.clone() };
+        let file_manager_state = FileManagerState {
+            config: file_config.clone(),
+        };
         let db_ref = self.database.clone();
 
         // 设备控制路由
@@ -117,8 +156,14 @@ impl WebServer {
         let mut app = Router::new()
             .route("/", get(hello))
             .route(&format!("{}/debug", API_PREFIX), get(debug_console_page))
-            .route(&format!("{}/config-manager", API_PREFIX), get(config_manager_page))
-            .route(&format!("{}/config/save", API_PREFIX), post(move |body| save_config(body, config_path.clone())))
+            .route(
+                &format!("{}/config-manager", API_PREFIX),
+                get(config_manager_page),
+            )
+            .route(
+                &format!("{}/config/save", API_PREFIX),
+                post(move |body| save_config(body, config_path.clone())),
+            )
             .nest(&format!("{}/device", API_PREFIX), device_routes)
             .layer(CorsLayer::permissive());
 
@@ -180,15 +225,43 @@ impl WebServer {
                 .route("/:id/modbus/slave/:slave_id", delete(delete_modbus_slave))
                 .route("/:id/modbus/register", post(set_modbus_register))
                 .route("/:id/modbus/register/delete", post(delete_modbus_register))
-                .route("/:id/modbus/register/value", post(update_modbus_register_value))
-                .route("/:id/modbus/registers/batch", post(batch_update_modbus_registers))
+                .route(
+                    "/:id/modbus/register/value",
+                    post(update_modbus_register_value),
+                )
+                .route(
+                    "/:id/modbus/registers/batch",
+                    post(batch_update_modbus_registers),
+                )
                 // 报文监控路由
                 .route("/:id/packets", get(get_packets))
                 .route("/:id/packets", delete(clear_packets))
                 .route("/:id/packets/settings", post(set_packet_monitor_settings))
+                // 客户端连接管理路由
+                .route("/:id/clients", get(list_clients))
+                .route(
+                    "/:id/clients/:client_id/disconnect",
+                    post(disconnect_client),
+                )
+                // Debug 模式路由
+                .route("/:id/debug", get(get_debug_status))
+                .route("/:id/debug", post(set_debug_mode))
+                .route("/:id/debug/log", get(download_debug_log))
+                // 模板管理路由
+                .route("/templates", get(list_templates))
+                .route("/templates/:id", delete(delete_template))
+                .route("/create-from-template", post(create_from_template))
+                .route("/:id/save-as-template", post(save_as_template))
                 .layer(Extension(simulator_manager));
 
             app = app.nest(&format!("{}/tcp-simulator", API_PREFIX), simulator_routes);
+        }
+
+        // Swagger UI（仅在 swagger feature 启用时）
+        #[cfg(feature = "swagger")]
+        {
+            app = app.merge(swagger_routes());
+            tracing::info!("Swagger UI 已启用: /swagger-ui/ (开发环境)");
         }
 
         // 数据库 API 路由（可选）
@@ -205,7 +278,11 @@ impl WebServer {
             // 素材管理 API（需要数据库和资源配置支持）
             if let Some(ref rc) = self.resource_config {
                 if rc.enable {
-                    tracing::info!("素材管理功能已启用, 根路径: {}, URL前缀: {}", rc.path, rc.url_prefix);
+                    tracing::info!(
+                        "素材管理功能已启用, 根路径: {}, URL前缀: {}",
+                        rc.path,
+                        rc.url_prefix
+                    );
                     let resource_state = ResourceManagerState { config: rc.clone() };
 
                     // Screen API 路由（带 ResourceManagerState 以支持素材路径）
@@ -231,7 +308,10 @@ impl WebServer {
 
                     app = app
                         .nest(&format!("{}/screens", API_PREFIX), screen_routes)
-                        .nest(&format!("{}/materials", API_PREFIX), material_base_routes.merge(material_with_state_routes))
+                        .nest(
+                            &format!("{}/materials", API_PREFIX),
+                            material_base_routes.merge(material_with_state_routes),
+                        )
                         // 静态资源访问（支持子路径）
                         .route("/static/*path", get(serve_static_resource))
                         .layer(Extension(resource_state))
@@ -276,10 +356,6 @@ impl WebServer {
                     .nest(&format!("{}/screens", API_PREFIX), screen_routes)
                     .nest(&format!("{}/materials", API_PREFIX), material_routes);
             }
-
-            // 添加 Swagger UI
-            app = app.merge(swagger_routes());
-            tracing::info!("Swagger UI 已启用: /swagger-ui/");
         }
 
         let addr: SocketAddr = format!("0.0.0.0:{}", self.config.web_server.port).parse()?;
@@ -312,7 +388,7 @@ async fn debug_console_page() -> Html<&'static str> {
 /// 获取配置信息（用于调试控制台）
 async fn get_config(config: Config) -> axum::Json<serde_json::Value> {
     tracing::info!("[调试] 获取配置信息请求");
-    
+
     let response = serde_json::json!({
         "state": 0,
         "message": "成功",
@@ -328,10 +404,14 @@ async fn get_config(config: Config) -> axum::Json<serde_json::Value> {
             }).collect::<Vec<_>>()
         }
     });
-    
-    tracing::info!("[调试] 返回配置: {} 个节点, {} 个场景, {} 个通道", 
-        config.nodes.len(), config.scenes.len(), config.channels.len());
-    
+
+    tracing::info!(
+        "[调试] 返回配置: {} 个节点, {} 个场景, {} 个通道",
+        config.nodes.len(),
+        config.scenes.len(),
+        config.channels.len()
+    );
+
     axum::Json(response)
 }
 
@@ -346,27 +426,25 @@ async fn save_config(
     config_path: String,
 ) -> axum::Json<serde_json::Value> {
     tracing::info!("[配置] 保存配置请求");
-    
+
     // 将配置写入文件
     match serde_json::to_string_pretty(&payload) {
-        Ok(json_str) => {
-            match std::fs::write(&config_path, json_str) {
-                Ok(_) => {
-                    tracing::info!("[配置] 配置已保存到: {}", config_path);
-                    axum::Json(serde_json::json!({
-                        "state": 0,
-                        "message": format!("配置已保存到 {}", config_path)
-                    }))
-                }
-                Err(e) => {
-                    tracing::error!("[配置] 保存失败: {}", e);
-                    axum::Json(serde_json::json!({
-                        "state": 1,
-                        "message": format!("保存失败: {}", e)
-                    }))
-                }
+        Ok(json_str) => match std::fs::write(&config_path, json_str) {
+            Ok(_) => {
+                tracing::info!("[配置] 配置已保存到: {}", config_path);
+                axum::Json(serde_json::json!({
+                    "state": 0,
+                    "message": format!("配置已保存到 {}", config_path)
+                }))
             }
-        }
+            Err(e) => {
+                tracing::error!("[配置] 保存失败: {}", e);
+                axum::Json(serde_json::json!({
+                    "state": 1,
+                    "message": format!("保存失败: {}", e)
+                }))
+            }
+        },
         Err(e) => {
             tracing::error!("[配置] 序列化失败: {}", e);
             axum::Json(serde_json::json!({

@@ -1,7 +1,6 @@
 /// TCP 模拟器 HTTP API
 ///
 /// 提供 REST API 来管理 TCP 协议模拟器。
-
 use axum::{
     extract::{Extension, Path},
     Json,
@@ -10,25 +9,33 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
 
-use axum::extract::Query;
 use crate::tcp_simulator::{
     protocols::{ModbusValues, RegisterConfig, RegisterType, SlaveConfig},
     state::PacketRecord,
     ProtocolInfo, SimulatorInfo, SimulatorStatus, TcpSimulatorConfig, TcpSimulatorManager,
 };
 use crate::web::response::ApiResponse;
+use axum::extract::Query;
+
+#[cfg(feature = "swagger")]
+use utoipa::ToSchema;
 
 /// 创建模拟器请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct CreateSimulatorRequest {
     /// 显示名称
+    #[cfg_attr(feature = "swagger", schema(example = "PLC 模拟器"))]
     pub name: String,
     /// 协议类型
+    #[cfg_attr(feature = "swagger", schema(example = "modbus"))]
     pub protocol: String,
     /// 绑定地址（可选，默认 0.0.0.0）
     #[serde(default = "default_bind_addr")]
+    #[cfg_attr(feature = "swagger", schema(example = "0.0.0.0"))]
     pub bind_addr: String,
     /// 监听端口
+    #[cfg_attr(feature = "swagger", schema(example = 502))]
     pub port: u16,
     /// 初始状态（可选）
     #[serde(default)]
@@ -48,6 +55,7 @@ fn default_auto_start() -> bool {
 
 /// 更新状态请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct UpdateStateRequest {
     /// 是否在线
     #[serde(default)]
@@ -59,14 +67,24 @@ pub struct UpdateStateRequest {
 
 /// 触发故障请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct TriggerFaultRequest {
     /// 故障类型
+    #[cfg_attr(feature = "swagger", schema(example = "communication_error"))]
     pub fault_type: String,
 }
 
 /// 获取支持的协议列表
 ///
 /// GET /lspcapi/tcp-simulator/protocols
+#[cfg_attr(feature = "swagger", utoipa::path(
+    get,
+    path = "/lspcapi/tcp-simulator/protocols",
+    tag = "TCP Simulator",
+    responses(
+        (status = 200, description = "成功返回协议列表", body = Vec<ProtocolInfo>)
+    )
+))]
 pub async fn get_protocols(
     Extension(manager): Extension<Arc<TcpSimulatorManager>>,
 ) -> Json<ApiResponse<Vec<ProtocolInfo>>> {
@@ -76,7 +94,18 @@ pub async fn get_protocols(
 
 /// 创建模拟器
 ///
-/// POST /lspcapi/tcp-simulator/create
+/// 创建一个新的 TCP 协议模拟器实例，可选择自动启动
+#[cfg_attr(feature = "swagger", utoipa::path(
+    post,
+    path = "/lspcapi/tcp-simulator/create",
+    tag = "TCP Simulator",
+    request_body = CreateSimulatorRequest,
+    responses(
+        (status = 200, description = "创建成功", body = Value),
+        (status = 400, description = "参数错误", body = Value),
+        (status = 500, description = "创建失败", body = Value)
+    )
+))]
 pub async fn create_simulator(
     Extension(manager): Extension<Arc<TcpSimulatorManager>>,
     Json(req): Json<CreateSimulatorRequest>,
@@ -314,45 +343,70 @@ pub async fn set_online(
 
 /// 添加 Modbus Slave 请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct AddModbusSlaveRequest {
+    /// Slave ID (1-247)
     #[serde(rename = "slaveId")]
+    #[cfg_attr(feature = "swagger", schema(example = 1))]
     pub slave_id: u8,
+    /// 寄存器配置列表（可选）
     #[serde(default)]
     pub registers: Vec<RegisterConfig>,
 }
 
 /// 设置 Modbus 寄存器请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct SetModbusRegisterRequest {
+    /// Slave ID
     #[serde(rename = "slaveId")]
+    #[cfg_attr(feature = "swagger", schema(example = 1))]
     pub slave_id: u8,
+    /// 寄存器配置
     pub register: RegisterConfig,
 }
 
 /// 删除 Modbus 寄存器请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct DeleteModbusRegisterRequest {
+    /// Slave ID
     #[serde(rename = "slaveId")]
+    #[cfg_attr(feature = "swagger", schema(example = 1))]
     pub slave_id: u8,
+    /// 寄存器类型
     #[serde(rename = "registerType")]
+    #[cfg_attr(feature = "swagger", schema(example = "holding_register"))]
     pub register_type: String,
+    /// 寄存器地址
+    #[cfg_attr(feature = "swagger", schema(example = 0))]
     pub address: u16,
 }
 
 /// 更新 Modbus 寄存器值请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct UpdateModbusRegisterValueRequest {
+    /// Slave ID
     #[serde(rename = "slaveId")]
+    #[cfg_attr(feature = "swagger", schema(example = 1))]
     pub slave_id: u8,
+    /// 寄存器类型
     #[serde(rename = "registerType")]
+    #[cfg_attr(feature = "swagger", schema(example = "holding_register"))]
     pub register_type: String,
+    /// 寄存器地址
+    #[cfg_attr(feature = "swagger", schema(example = 0))]
     pub address: u16,
+    /// 新值
     pub value: Value,
 }
 
 /// 批量更新 Modbus 寄存器请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct BatchUpdateModbusRegistersRequest {
+    /// 更新列表
     pub updates: Vec<UpdateModbusRegisterValueRequest>,
 }
 
@@ -536,9 +590,11 @@ pub async fn update_modbus_register_value(
     let result = manager
         .update_modbus_state(&id, |values| {
             if let Some(slave) = values.get_slave_mut(req.slave_id) {
-                if let Some(reg) = slave.registers.iter_mut().find(|r| {
-                    r.register_type == register_type && r.address == req.address
-                }) {
+                if let Some(reg) = slave
+                    .registers
+                    .iter_mut()
+                    .find(|r| r.register_type == register_type && r.address == req.address)
+                {
                     reg.value = req.value.clone();
                     return Ok(());
                 }
@@ -568,25 +624,26 @@ pub async fn batch_update_modbus_registers(
     Path(id): Path<String>,
     Json(req): Json<BatchUpdateModbusRegistersRequest>,
 ) -> Json<Value> {
-    let result = manager
-        .update_modbus_state(&id, |values| {
-            for update in &req.updates {
-                let register_type = match parse_register_type(&update.register_type) {
-                    Some(t) => t,
-                    None => continue,
-                };
+    let result =
+        manager
+            .update_modbus_state(&id, |values| {
+                for update in &req.updates {
+                    let register_type = match parse_register_type(&update.register_type) {
+                        Some(t) => t,
+                        None => continue,
+                    };
 
-                if let Some(slave) = values.get_slave_mut(update.slave_id) {
-                    if let Some(reg) = slave.registers.iter_mut().find(|r| {
-                        r.register_type == register_type && r.address == update.address
-                    }) {
-                        reg.value = update.value.clone();
+                    if let Some(slave) = values.get_slave_mut(update.slave_id) {
+                        if let Some(reg) = slave.registers.iter_mut().find(|r| {
+                            r.register_type == register_type && r.address == update.address
+                        }) {
+                            reg.value = update.value.clone();
+                        }
                     }
                 }
-            }
-            Ok(())
-        })
-        .await;
+                Ok(())
+            })
+            .await;
 
     match result {
         Ok(info) => Json(serde_json::json!({
@@ -629,21 +686,25 @@ fn parse_register_type(s: &str) -> Option<RegisterType> {
 
 /// 获取报文列表查询参数
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct GetPacketsQuery {
     /// 获取此 ID 之后的报文（增量获取）
     #[serde(rename = "afterId")]
     pub after_id: Option<u64>,
     /// 限制返回数量（获取最近 N 条）
+    #[cfg_attr(feature = "swagger", schema(example = 100))]
     pub limit: Option<usize>,
 }
 
 /// 报文监控设置请求
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct PacketMonitorSettingsRequest {
     /// 是否启用监控
     pub enabled: Option<bool>,
     /// 最大报文数量
     #[serde(rename = "maxPackets")]
+    #[cfg_attr(feature = "swagger", schema(example = 1000))]
     pub max_packets: Option<usize>,
 }
 
@@ -724,6 +785,251 @@ pub async fn set_packet_monitor_settings(
             "state": 0,
             "message": "设置已更新",
             "data": info
+        })),
+        None => Json(serde_json::json!({
+            "state": 30001,
+            "message": format!("模拟器 '{}' 不存在", id)
+        })),
+    }
+}
+
+// ============ 客户端连接管理 API ============
+
+use crate::tcp_simulator::state::ClientConnection;
+
+// ============ 模板管理 API ============
+
+use crate::tcp_simulator::{CreateFromTemplateRequest, SimulatorTemplate};
+
+/// 保存为模板请求
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
+pub struct SaveAsTemplateRequest {
+    /// 模板名称
+    pub name: String,
+    /// 模板描述
+    #[serde(default)]
+    pub description: String,
+}
+
+/// 获取模板列表
+///
+/// GET /lspcapi/tcp-simulator/templates
+pub async fn list_templates(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+) -> Json<ApiResponse<Vec<SimulatorTemplate>>> {
+    let templates = manager.template_manager.list().await;
+    Json(ApiResponse::success("获取模板列表成功", templates))
+}
+
+/// 删除模板
+///
+/// DELETE /lspcapi/tcp-simulator/templates/:id
+pub async fn delete_template(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+) -> Json<Value> {
+    match manager.template_manager.delete(&id).await {
+        Ok(_) => Json(serde_json::json!({
+            "state": 0,
+            "message": "模板已删除"
+        })),
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+
+/// 从模板创建模拟器
+///
+/// POST /lspcapi/tcp-simulator/create-from-template
+pub async fn create_from_template(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Json(req): Json<CreateFromTemplateRequest>,
+) -> Json<Value> {
+    match manager.create_from_template(req).await {
+        Ok(mut info) => {
+            // 自动启动
+            if let Err(e) = manager.start(&info.id).await {
+                return Json(serde_json::json!({
+                    "state": 30006,
+                    "message": format!("模拟器已创建但启动失败: {}", e),
+                    "data": info
+                }));
+            }
+            info.status = SimulatorStatus::Running;
+
+            Json(serde_json::json!({
+                "state": 0,
+                "message": "模拟器创建成功",
+                "data": info
+            }))
+        }
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+
+/// 将模拟器保存为模板
+///
+/// POST /lspcapi/tcp-simulator/:id/save-as-template
+pub async fn save_as_template(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+    Json(req): Json<SaveAsTemplateRequest>,
+) -> Json<Value> {
+    match manager
+        .save_as_template(&id, req.name, req.description)
+        .await
+    {
+        Ok(template) => Json(serde_json::json!({
+            "state": 0,
+            "message": "模板保存成功",
+            "data": template
+        })),
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+///
+/// GET /lspcapi/tcp-simulator/:id/clients
+pub async fn list_clients(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+) -> Json<Value> {
+    match manager.get(&id).await {
+        Some(info) => {
+            let clients: Vec<&ClientConnection> = info.state.clients.values().collect();
+            Json(serde_json::json!({
+                "state": 0,
+                "message": "获取客户端列表成功",
+                "data": clients
+            }))
+        }
+        None => Json(serde_json::json!({
+            "state": 30001,
+            "message": format!("模拟器 '{}' 不存在", id)
+        })),
+    }
+}
+
+/// 断开指定客户端连接
+///
+/// POST /lspcapi/tcp-simulator/:id/clients/:clientId/disconnect
+pub async fn disconnect_client(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path((id, client_id)): Path<(String, String)>,
+) -> Json<Value> {
+    match manager.disconnect_client(&id, &client_id).await {
+        Ok(_) => Json(serde_json::json!({
+            "state": 0,
+            "message": format!("客户端 '{}' 已断开连接", client_id)
+        })),
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+
+// ============ Debug 模式 API ============
+
+/// 设置 Debug 模式请求
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
+pub struct SetDebugModeRequest {
+    /// 是否启用 Debug 模式
+    pub enabled: bool,
+}
+
+/// 设置 Debug 模式
+///
+/// POST /lspcapi/tcp-simulator/:id/debug
+pub async fn set_debug_mode(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+    Json(req): Json<SetDebugModeRequest>,
+) -> Json<Value> {
+    match manager.set_debug_mode(&id, req.enabled).await {
+        Ok(info) => {
+            let message = if req.enabled {
+                "Debug 模式已启用"
+            } else {
+                "Debug 模式已关闭"
+            };
+            Json(serde_json::json!({
+                "state": 0,
+                "message": message,
+                "data": {
+                    "debug_mode": req.enabled,
+                    "log_path": info.state.packet_monitor.debug_log_path
+                }
+            }))
+        }
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+
+/// 下载 Debug 日志
+///
+/// GET /lspcapi/tcp-simulator/:id/debug/log
+pub async fn download_debug_log(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+) -> axum::response::Response {
+    use axum::http::{header, StatusCode};
+    use axum::response::IntoResponse;
+
+    match manager.get_debug_log(&id).await {
+        Ok(content) => {
+            let filename = format!("simulator_{}_debug.log", id);
+            (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE, "text/plain; charset=utf-8"),
+                    (
+                        header::CONTENT_DISPOSITION,
+                        &format!("attachment; filename=\"{}\"", filename),
+                    ),
+                ],
+                content,
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "state": 30006,
+                "message": e
+            })),
+        )
+            .into_response(),
+    }
+}
+
+/// 获取 Debug 状态
+///
+/// GET /lspcapi/tcp-simulator/:id/debug
+pub async fn get_debug_status(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+) -> Json<Value> {
+    match manager.get(&id).await {
+        Some(info) => Json(serde_json::json!({
+            "state": 0,
+            "message": "获取 Debug 状态成功",
+            "data": {
+                "debug_mode": info.state.packet_monitor.debug_mode,
+                "log_path": info.state.packet_monitor.debug_log_path
+            }
         })),
         None => Json(serde_json::json!({
             "state": 30001,

@@ -147,3 +147,74 @@ export async function setPacketMonitorSettings(id: string, settings: PacketMonit
   const response = await api.post<ApiResponse<SimulatorInfo>>(`/${id}/packets/settings`, settings)
   return response.data.data!
 }
+
+// ============ 客户端连接 API ============
+
+import type { ClientConnection } from '@/types/simulator'
+
+/** 获取客户端连接列表 */
+export async function listClients(id: string): Promise<ClientConnection[]> {
+  const response = await api.get<ApiResponse<ClientConnection[]>>(`/${id}/clients`)
+  return response.data.data || []
+}
+
+/** 断开客户端连接 */
+export async function disconnectClient(id: string, clientId: string): Promise<void> {
+  await api.post(`/${id}/clients/${clientId}/disconnect`)
+}
+
+// ============ Debug 模式 API ============
+
+/** Debug 模式状态响应 */
+export interface DebugModeResponse {
+  debug_mode: boolean
+  log_path: string | null
+}
+
+/** 设置 Debug 模式 */
+export async function setDebugMode(id: string, enabled: boolean): Promise<DebugModeResponse> {
+  const response = await api.post<ApiResponse<DebugModeResponse>>(`/${id}/debug`, { enabled })
+  return response.data.data!
+}
+
+/** 获取 Debug 模式状态 */
+export async function getDebugStatus(id: string): Promise<DebugModeResponse> {
+  const response = await api.get<ApiResponse<DebugModeResponse>>(`/${id}/debug`)
+  return response.data.data!
+}
+
+/** 下载 Debug 日志 */
+export function getDebugLogUrl(id: string): string {
+  return `/lspcapi/tcp-simulator/${id}/debug/log`
+}
+
+// ============ 模板管理 API ============
+
+import type {
+  SimulatorTemplate,
+  CreateFromTemplateRequest,
+  SaveAsTemplateRequest,
+} from '@/types/simulator'
+
+/** 获取模板列表 */
+export async function listTemplates(): Promise<SimulatorTemplate[]> {
+  const response = await api.get<ApiResponse<SimulatorTemplate[]>>('/templates')
+  return response.data.data || []
+}
+
+/** 删除模板 */
+export async function deleteTemplate(id: string): Promise<void> {
+  await api.delete(`/templates/${id}`)
+}
+
+/** 从模板创建模拟器 */
+export async function createFromTemplate(data: CreateFromTemplateRequest): Promise<SimulatorInfo> {
+  const response = await api.post<ApiResponse<SimulatorInfo>>('/create-from-template', data)
+  return response.data.data!
+}
+
+/** 将模拟器保存为模板 */
+export async function saveAsTemplate(id: string, data: SaveAsTemplateRequest): Promise<SimulatorTemplate> {
+  const response = await api.post<ApiResponse<SimulatorTemplate>>(`/${id}/save-as-template`, data)
+  return response.data.data!
+}

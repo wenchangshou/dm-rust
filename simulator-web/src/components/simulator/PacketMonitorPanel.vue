@@ -3,27 +3,43 @@
     <template #header>
       <div class="panel-header">
         <div class="header-left">
-          <span>报文监控</span>
+          <span class="panel-title">报文监控</span>
           <el-tag :type="monitorEnabled ? 'success' : 'info'" size="small">
             {{ monitorEnabled ? '监控中' : '已暂停' }}
           </el-tag>
-          <el-tag type="info" size="small">
+          <el-tag type="info" size="small" class="count-tag">
             {{ packets.length }} 条记录
+          </el-tag>
+          <el-tag v-if="debugMode" type="warning" size="small" class="debug-tag">
+            <el-icon>
+              <Aim />
+            </el-icon>
+            Debug
           </el-tag>
         </div>
         <div class="header-right">
-          <el-switch
-            v-model="monitorEnabled"
-            active-text="监控"
-            inactive-text="暂停"
-            @change="handleMonitorToggle"
-          />
+          <el-tooltip content="Debug 模式：持久化所有报文到文件" placement="top">
+            <el-switch v-model="debugMode" active-text="Debug" inactive-text="" @change="handleDebugToggle"
+              :loading="debugLoading" class="debug-switch" />
+          </el-tooltip>
+          <el-button v-if="debugMode" size="small" type="success" @click="handleDownloadLog">
+            <el-icon>
+              <Download />
+            </el-icon>
+            下载日志
+          </el-button>
+          <el-divider direction="vertical" />
+          <el-switch v-model="monitorEnabled" active-text="监控" inactive-text="暂停" @change="handleMonitorToggle" />
           <el-button size="small" @click="handleRefresh" :loading="loading">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
           <el-button size="small" type="danger" @click="handleClear" :disabled="packets.length === 0">
-            <el-icon><Delete /></el-icon>
+            <el-icon>
+              <Delete />
+            </el-icon>
             清空
           </el-button>
           <el-checkbox v-model="autoScroll" size="small">自动滚动</el-checkbox>
@@ -33,15 +49,15 @@
 
     <!-- 报文列表 -->
     <div class="packet-list" ref="packetListRef">
-      <div
-        v-for="packet in packets"
-        :key="packet.id"
-        :class="['packet-item', `packet-${packet.direction}`]"
-      >
+      <div v-for="packet in packets" :key="packet.id" :class="['packet-item', `packet-${packet.direction}`]">
         <div class="packet-header">
           <span class="packet-direction">
-            <el-icon v-if="packet.direction === 'received'"><Download /></el-icon>
-            <el-icon v-else><Upload /></el-icon>
+            <el-icon v-if="packet.direction === 'received'">
+              <Download />
+            </el-icon>
+            <el-icon v-else>
+              <Upload />
+            </el-icon>
             {{ packet.direction === 'received' ? 'RX' : 'TX' }}
           </span>
           <span class="packet-time">{{ formatTime(packet.timestamp) }}</span>
@@ -59,8 +75,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { Refresh, Delete, Download, Upload } from '@element-plus/icons-vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { Refresh, Delete, Download, Upload, Aim } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as simulatorApi from '@/api/simulator'
 import type { PacketRecord } from '@/types/simulator'
@@ -81,6 +97,10 @@ const autoScroll = ref(true)
 const packetListRef = ref<HTMLElement | null>(null)
 const lastPacketId = ref(0)
 let pollTimer: ReturnType<typeof setInterval> | null = null
+
+// Debug 模式
+const debugMode = ref(false)
+const debugLoading = ref(false)
 
 // 格式化时间
 function formatTime(timestamp: string): string {
@@ -161,6 +181,25 @@ async function handleMonitorToggle(enabled: boolean) {
   }
 }
 
+// 切换 Debug 模式
+async function handleDebugToggle(enabled: boolean) {
+  debugLoading.value = true
+  try {
+    await simulatorApi.setDebugMode(props.simulatorId, enabled)
+    ElMessage.success(enabled ? 'Debug 模式已开启，报文将持久化到文件' : 'Debug 模式已关闭')
+  } catch {
+    debugMode.value = !enabled
+  } finally {
+    debugLoading.value = false
+  }
+}
+
+// 下载 Debug 日志
+function handleDownloadLog() {
+  const url = simulatorApi.getDebugLogUrl(props.simulatorId)
+  window.open(url, '_blank')
+}
+
 // 开始轮询
 function startPolling() {
   if (pollTimer) return
@@ -198,10 +237,14 @@ watch(() => props.simulatorId, () => {
 
 <style lang="scss" scoped>
 .packet-monitor-panel {
+  border-radius: 16px;
+
   .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
 
     .header-left {
       display: flex;
@@ -209,42 +252,70 @@ watch(() => props.simulatorId, () => {
       gap: 10px;
     }
 
+    .panel-title {
+      font-weight: 600;
+    }
+
+    .count-tag {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .debug-tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .debug-switch {
+      margin-right: 4px;
+    }
+
     .header-right {
       display: flex;
       align-items: center;
       gap: 10px;
+
+      .el-divider--vertical {
+        height: 20px;
+      }
     }
   }
 
   .packet-list {
     height: 400px;
     overflow-y: auto;
-    background: #1e1e1e;
-    border-radius: 4px;
-    padding: 10px;
-    font-family: 'Consolas', 'Monaco', monospace;
+    background: #1a1a2e;
+    border-radius: 10px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
     font-size: 12px;
   }
 
   .packet-item {
     margin-bottom: 8px;
-    padding: 8px;
-    border-radius: 4px;
-    background: #2d2d2d;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
 
     &.packet-received {
-      border-left: 3px solid #67c23a;
+      border-left: 3px solid var(--success);
 
       .packet-direction {
-        color: #67c23a;
+        color: var(--success);
       }
     }
 
     &.packet-sent {
-      border-left: 3px solid #409eff;
+      border-left: 3px solid var(--info);
 
       .packet-direction {
-        color: #409eff;
+        color: var(--info);
       }
     }
 
@@ -253,7 +324,7 @@ watch(() => props.simulatorId, () => {
       align-items: center;
       gap: 15px;
       margin-bottom: 6px;
-      color: #909399;
+      color: rgba(255, 255, 255, 0.5);
       font-size: 11px;
 
       .packet-direction {
@@ -270,11 +341,18 @@ watch(() => props.simulatorId, () => {
 
     .packet-data {
       code {
-        color: #e6a23c;
+        color: #feca57;
         word-break: break-all;
         line-height: 1.6;
       }
     }
+  }
+}
+
+// 浅色主题下保持深色终端风格
+[data-theme="light"] .packet-monitor-panel {
+  .packet-list {
+    background: #1e293b;
   }
 }
 </style>

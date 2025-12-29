@@ -183,6 +183,10 @@ export interface PacketMonitor {
   max_packets: number
   /** 报文列表 */
   packets: PacketRecord[]
+  /** Debug 模式 */
+  debug_mode?: boolean
+  /** Debug 日志路径 */
+  debug_log_path?: string | null
 }
 
 /** 获取报文响应 */
@@ -195,4 +199,50 @@ export interface GetPacketsResponse {
 export interface PacketMonitorSettingsRequest {
   enabled?: boolean
   maxPackets?: number
+}
+
+// ============ 客户端连接相关类型 ============
+
+/** 客户端连接信息 */
+export interface ClientConnection {
+  /** 唯一标识 */
+  id: string
+  /** 客户端地址 */
+  peer_addr: string
+  /** 连接时间 (ISO 8601) */
+  connected_at: string
+  /** 接收字节数 */
+  bytes_received: number
+  /** 发送字节数 */
+  bytes_sent: number
+  /** 最后活动时间 (ISO 8601) */
+  last_activity: string
+}
+
+// ============ 模板相关类型 ============
+
+/** 模拟器模板 */
+export interface SimulatorTemplate {
+  id: string
+  name: string
+  description: string
+  protocol: string
+  config: Record<string, unknown>
+  values: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+/** 从模板创建请求 */
+export interface CreateFromTemplateRequest {
+  template_id: string
+  name: string
+  bind_addr: string
+  port: number
+}
+
+/** 保存为模板请求 */
+export interface SaveAsTemplateRequest {
+  name: string
+  description: string
 }

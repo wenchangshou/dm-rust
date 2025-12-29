@@ -42,15 +42,16 @@
 /// 1. 在 `protocols/` 目录创建新文件
 /// 2. 实现 `ProtocolHandler` trait
 /// 3. 在 `protocols/mod.rs` 中注册
-
 pub mod handler;
 pub mod manager;
 pub mod persistence;
 pub mod protocols;
 pub mod server;
 pub mod state;
+pub mod template;
 
 pub use manager::TcpSimulatorManager;
-pub use state::{
-    ProtocolInfo, SimulatorInfo, SimulatorStatus, TcpSimulatorConfig,
+pub use state::{ProtocolInfo, SimulatorInfo, SimulatorStatus, TcpSimulatorConfig};
+pub use template::{
+    CreateFromTemplateRequest, CreateTemplateRequest, SimulatorTemplate, TemplateManager,
 };

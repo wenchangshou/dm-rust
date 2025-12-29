@@ -1,7 +1,6 @@
 /// TCP 模拟服务器
 ///
 /// 管理单个 TCP 监听器，处理客户端连接和数据收发。
-
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -10,7 +9,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
 use super::handler::{HandleResult, ProtocolHandler};
-use super::state::{SimulatorState, SimulatorStatus};
+use super::state::{ClientConnection, SimulatorState, SimulatorStatus};
 
 /// TCP 服务器配置
 #[derive(Debug, Clone)]
@@ -82,7 +81,11 @@ impl TcpSimulatorServer {
             .await
             .map_err(|e| format!("Failed to bind {}: {}", addr, e))?;
 
-        info!("TCP 模拟服务器启动: {} (协议: {})", addr, self.handler.name());
+        info!(
+            "TCP 模拟服务器启动: {} (协议: {})",
+            addr,
+            self.handler.name()
+        );
 
         // 创建停止信号通道
         let (shutdown_tx, _) = broadcast::channel::<()>(1);
@@ -268,9 +271,20 @@ impl TcpSimulatorServer {
             .map(|a| a.to_string())
             .unwrap_or_else(|_| "unknown".to_string());
 
-        // 连接建立回调
+        // 生成客户端唯一标识
+        let client_id = format!(
+            "client_{}",
+            uuid::Uuid::new_v4().to_string().replace("-", "")[..8].to_string()
+        );
+
+        // 连接建立回调，添加到客户端列表
         {
             let mut state_guard = state.write().await;
+
+            // 记录客户端连接
+            let client = ClientConnection::new(client_id.clone(), peer_addr.clone());
+            state_guard.clients.insert(client_id.clone(), client);
+
             if let Some(welcome) = handler.on_connect(&mut state_guard).await {
                 if let Err(e) = stream.write_all(&welcome).await {
                     warn!("发送欢迎消息失败: {}", e);
@@ -300,6 +314,10 @@ impl TcpSimulatorServer {
                             {
                                 let mut state_guard = state.write().await;
                                 state_guard.stats.record_received(n as u64);
+                                // 更新客户端统计
+                                if let Some(client) = state_guard.clients.get_mut(&client_id) {
+                                    client.record_received(n as u64);
+                                }
                                 state_guard.packet_monitor.record_received(
                                     &peer_addr,
                                     received_data,
@@ -324,6 +342,10 @@ impl TcpSimulatorServer {
                                     {
                                         let mut state_guard = state.write().await;
                                         state_guard.stats.record_sent(response.len() as u64);
+                                        // 更新客户端统计
+                                        if let Some(client) = state_guard.clients.get_mut(&client_id) {
+                                            client.record_sent(response.len() as u64);
+                                        }
                                         state_guard.packet_monitor.record_sent(
                                             &peer_addr,
                                             &response,
@@ -368,11 +390,13 @@ impl TcpSimulatorServer {
             }
         }
 
-        // 连接断开回调
+        // 连接断开回调，从客户端列表移除
         {
             let mut state_guard = state.write().await;
             handler.on_disconnect(&mut state_guard).await;
             state_guard.stats.record_disconnection();
+            // 移除客户端连接
+            state_guard.clients.remove(&client_id);
         }
 
         debug!("连接处理结束: {}", peer_addr);

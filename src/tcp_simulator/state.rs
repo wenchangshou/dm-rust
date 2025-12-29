@@ -1,12 +1,15 @@
 /// 模拟器状态和配置定义
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
 
+#[cfg(feature = "swagger")]
+use utoipa::ToSchema;
+
 /// 模拟器配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct TcpSimulatorConfig {
     /// 唯一标识（自动生成）
     #[serde(default)]
@@ -31,6 +34,7 @@ fn default_bind_addr() -> String {
 
 /// 模拟器运行状态
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum SimulatorStatus {
     /// 已停止
@@ -51,6 +55,7 @@ impl Default for SimulatorStatus {
 
 /// 报文方向
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum PacketDirection {
     /// 接收到的数据
@@ -61,6 +66,7 @@ pub enum PacketDirection {
 
 /// 报文记录
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
 pub struct PacketRecord {
     /// 唯一 ID
     pub id: u64,
@@ -115,6 +121,12 @@ pub struct PacketMonitor {
     /// 下一个报文 ID
     #[serde(default)]
     next_id: u64,
+    /// Debug 模式（持久化所有报文到文件）
+    #[serde(default)]
+    pub debug_mode: bool,
+    /// Debug 日志文件路径
+    #[serde(skip)]
+    pub debug_log_path: Option<String>,
 }
 
 fn default_monitor_enabled() -> bool {
@@ -132,6 +144,8 @@ impl Default for PacketMonitor {
             max_packets: 1000,
             packets: VecDeque::new(),
             next_id: 1,
+            debug_mode: false,
+            debug_log_path: None,
         }
     }
 }
@@ -155,18 +169,43 @@ impl PacketMonitor {
 
         let record = PacketRecord::new(
             self.next_id,
-            direction,
+            direction.clone(),
             peer_addr.to_string(),
             data,
             parsed,
         );
         self.next_id += 1;
 
+        // Debug 模式：写入文件
+        if self.debug_mode {
+            if let Some(ref path) = self.debug_log_path {
+                self.append_to_log_file(path, &record);
+            }
+        }
+
         self.packets.push_back(record);
 
         // 超过最大数量时移除旧记录
         while self.packets.len() > self.max_packets {
             self.packets.pop_front();
+        }
+    }
+
+    /// 追加报文到日志文件
+    fn append_to_log_file(&self, path: &str, record: &PacketRecord) {
+        use std::fs::OpenOptions;
+        use std::io::Write;
+
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+            let dir_str = match record.direction {
+                PacketDirection::Received => "<<<",
+                PacketDirection::Sent => ">>>",
+            };
+            let line = format!(
+                "[{}] {} {} {}\n",
+                record.timestamp, dir_str, record.peer_addr, record.hex_data
+            );
+            let _ = file.write_all(line.as_bytes());
         }
     }
 
@@ -217,6 +256,29 @@ impl PacketMonitor {
         }
     }
 
+    /// 设置 Debug 模式
+    pub fn set_debug_mode(&mut self, enabled: bool, simulator_id: &str) {
+        self.debug_mode = enabled;
+        if enabled {
+            // 创建日志目录
+            let log_dir = std::path::Path::new("logs/simulator");
+            let _ = std::fs::create_dir_all(log_dir);
+
+            // 生成日志文件路径
+            let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+            let filename = format!("{}_{}.log", simulator_id, timestamp);
+            let path = log_dir.join(filename);
+            self.debug_log_path = Some(path.to_string_lossy().to_string());
+        } else {
+            self.debug_log_path = None;
+        }
+    }
+
+    /// 获取 Debug 日志文件路径
+    pub fn get_debug_log_path(&self) -> Option<&str> {
+        self.debug_log_path.as_deref()
+    }
+
     /// 获取报文数量
     pub fn len(&self) -> usize {
         self.packets.len()
@@ -225,6 +287,53 @@ impl PacketMonitor {
     /// 是否为空
     pub fn is_empty(&self) -> bool {
         self.packets.is_empty()
+    }
+}
+
+// ============ 客户端连接追踪 ============
+
+/// 客户端连接信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
+pub struct ClientConnection {
+    /// 唯一标识
+    pub id: String,
+    /// 客户端地址
+    pub peer_addr: String,
+    /// 连接时间
+    pub connected_at: DateTime<Utc>,
+    /// 接收字节数
+    pub bytes_received: u64,
+    /// 发送字节数
+    pub bytes_sent: u64,
+    /// 最后活动时间
+    pub last_activity: DateTime<Utc>,
+}
+
+impl ClientConnection {
+    /// 创建新的客户端连接
+    pub fn new(id: String, peer_addr: String) -> Self {
+        let now = Utc::now();
+        Self {
+            id,
+            peer_addr,
+            connected_at: now,
+            bytes_received: 0,
+            bytes_sent: 0,
+            last_activity: now,
+        }
+    }
+
+    /// 记录接收字节
+    pub fn record_received(&mut self, bytes: u64) {
+        self.bytes_received += bytes;
+        self.last_activity = Utc::now();
+    }
+
+    /// 记录发送字节
+    pub fn record_sent(&mut self, bytes: u64) {
+        self.bytes_sent += bytes;
+        self.last_activity = Utc::now();
     }
 }
 
@@ -286,6 +395,9 @@ pub struct SimulatorState {
     /// 报文监控器
     #[serde(default)]
     pub packet_monitor: PacketMonitor,
+    /// 已连接的客户端列表
+    #[serde(default)]
+    pub clients: HashMap<String, ClientConnection>,
 }
 
 impl Default for SimulatorState {
@@ -296,6 +408,7 @@ impl Default for SimulatorState {
             values: HashMap::new(),
             stats: ConnectionStats::new(),
             packet_monitor: PacketMonitor::new(),
+            clients: HashMap::new(),
         }
     }
 }
@@ -330,7 +443,10 @@ impl SimulatorState {
 
     /// 获取整数值
     pub fn get_i32(&self, key: &str) -> Option<i32> {
-        self.values.get(key).and_then(|v| v.as_i64()).map(|v| v as i32)
+        self.values
+            .get(key)
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
     }
 
     /// 获取布尔值
@@ -367,7 +483,11 @@ pub struct SimulatorInfo {
 }
 
 impl SimulatorInfo {
-    pub fn new(config: &TcpSimulatorConfig, status: SimulatorStatus, state: SimulatorState) -> Self {
+    pub fn new(
+        config: &TcpSimulatorConfig,
+        status: SimulatorStatus,
+        state: SimulatorState,
+    ) -> Self {
         Self {
             id: config.id.clone(),
             name: config.name.clone(),

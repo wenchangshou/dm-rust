@@ -1,113 +1,104 @@
 <template>
   <div class="modbus-simulator-panel">
-    <!-- Slave 选择/管理 -->
-    <el-card>
+    <!-- 统一的 Modbus 管理面板 -->
+    <el-card class="unified-card">
       <template #header>
         <div class="card-header">
-          <span>Modbus Slaves</span>
-          <el-button type="primary" size="small" @click="showAddSlaveDialog = true">
-            <el-icon><Plus /></el-icon>
-            添加 Slave
-          </el-button>
-        </div>
-      </template>
-
-      <div class="slave-tabs" v-if="slaves.length > 0">
-        <el-tabs v-model="activeSlaveId" type="card" @tab-remove="handleDeleteSlave">
-          <el-tab-pane
-            v-for="slave in slaves"
-            :key="slave.slaveId"
-            :label="`Slave ${slave.slaveId}`"
-            :name="slave.slaveId.toString()"
-            :closable="slaves.length > 1"
-          />
-        </el-tabs>
-      </div>
-      <el-empty v-else description="暂无 Slave，请添加" />
-    </el-card>
-
-    <!-- 寄存器管理 -->
-    <el-card style="margin-top: 20px" v-if="currentSlave">
-      <template #header>
-        <div class="card-header">
-          <span>Slave {{ currentSlave.slaveId }} 寄存器</span>
+          <div class="header-left">
+            <span class="card-title">Modbus 寄存器管理</span>
+            <el-tag size="small" type="info">{{ slaves.length }} 个 Slave</el-tag>
+          </div>
           <div class="header-actions">
             <el-checkbox v-model="autoRefresh" size="small">
               实时刷新
             </el-checkbox>
-            <el-select
-              v-model="refreshInterval"
-              size="small"
-              style="width: 100px"
-              :disabled="!autoRefresh"
-            >
+            <el-select v-model="refreshInterval" size="small" class="interval-select" :disabled="!autoRefresh">
               <el-option :value="500" label="0.5秒" />
               <el-option :value="1000" label="1秒" />
               <el-option :value="2000" label="2秒" />
               <el-option :value="5000" label="5秒" />
             </el-select>
             <el-button size="small" @click="handleManualRefresh" :loading="loading">
-              <el-icon><Refresh /></el-icon>
+              <el-icon>
+                <Refresh />
+              </el-icon>
             </el-button>
-            <el-button type="primary" size="small" @click="handleAddRegister">
-              <el-icon><Plus /></el-icon>
-              添加寄存器
+            <el-divider direction="vertical" />
+            <el-button type="primary" size="small" @click="showAddSlaveDialog = true">
+              <el-icon>
+                <Plus />
+              </el-icon>
+              添加 Slave
             </el-button>
           </div>
         </div>
       </template>
 
-      <!-- 寄存器类型 Tabs -->
-      <el-tabs v-model="activeRegisterType" type="border-card">
-        <el-tab-pane label="线圈 (Coils)" name="coil">
-          <RegisterTable
-            :registers="coilRegisters"
-            register-type="coil"
-            @edit="handleEditRegister"
-            @delete="handleDeleteRegister"
-            @value-change="handleValueChange"
-          />
-        </el-tab-pane>
-        <el-tab-pane label="离散输入 (DI)" name="discrete_input">
-          <RegisterTable
-            :registers="discreteInputRegisters"
-            register-type="discrete_input"
-            @edit="handleEditRegister"
-            @delete="handleDeleteRegister"
-            @value-change="handleValueChange"
-          />
-        </el-tab-pane>
-        <el-tab-pane label="保持寄存器 (HR)" name="holding_register">
-          <RegisterTable
-            :registers="holdingRegisters"
-            register-type="holding_register"
-            @edit="handleEditRegister"
-            @delete="handleDeleteRegister"
-            @value-change="handleValueChange"
-          />
-        </el-tab-pane>
-        <el-tab-pane label="输入寄存器 (IR)" name="input_register">
-          <RegisterTable
-            :registers="inputRegisters"
-            register-type="input_register"
-            @edit="handleEditRegister"
-            @delete="handleDeleteRegister"
-            @value-change="handleValueChange"
-          />
-        </el-tab-pane>
-      </el-tabs>
+      <!-- Slave Tabs - 寄存器作为 Tab 内容 -->
+      <div class="slave-content" v-if="slaves.length > 0">
+        <el-tabs v-model="activeSlaveId" type="border-card" @tab-remove="handleDeleteSlave" class="slave-tabs">
+          <el-tab-pane v-for="slave in slaves" :key="slave.slaveId" :label="`Slave ${slave.slaveId}`"
+            :name="slave.slaveId.toString()" :closable="slaves.length > 1">
+            <!-- 当前 Slave 的寄存器管理 -->
+            <div class="slave-registers">
+              <div class="register-header">
+                <span class="register-count">共 {{ getSlaveRegisters(slave).length }} 个寄存器</span>
+                <el-button type="primary" size="small" @click="handleAddRegister">
+                  <el-icon>
+                    <Plus />
+                  </el-icon>
+                  添加寄存器
+                </el-button>
+              </div>
+
+              <!-- 寄存器类型 Tabs -->
+              <el-tabs v-model="activeRegisterType" type="card" class="register-type-tabs">
+                <el-tab-pane name="coil">
+                  <template #label>
+                    <span class="tab-label">线圈 <el-badge :value="getRegisterCount(slave, 'coil')"
+                        :hidden="getRegisterCount(slave, 'coil') === 0" /></span>
+                  </template>
+                  <RegisterTable :registers="getRegistersByType(slave, 'coil')" register-type="coil"
+                    @edit="handleEditRegister" @delete="handleDeleteRegister" @value-change="handleValueChange" />
+                </el-tab-pane>
+                <el-tab-pane name="discrete_input">
+                  <template #label>
+                    <span class="tab-label">离散输入 <el-badge :value="getRegisterCount(slave, 'discrete_input')"
+                        :hidden="getRegisterCount(slave, 'discrete_input') === 0" /></span>
+                  </template>
+                  <RegisterTable :registers="getRegistersByType(slave, 'discrete_input')" register-type="discrete_input"
+                    @edit="handleEditRegister" @delete="handleDeleteRegister" @value-change="handleValueChange" />
+                </el-tab-pane>
+                <el-tab-pane name="holding_register">
+                  <template #label>
+                    <span class="tab-label">保持寄存器 <el-badge :value="getRegisterCount(slave, 'holding_register')"
+                        :hidden="getRegisterCount(slave, 'holding_register') === 0" /></span>
+                  </template>
+                  <RegisterTable :registers="getRegistersByType(slave, 'holding_register')"
+                    register-type="holding_register" @edit="handleEditRegister" @delete="handleDeleteRegister"
+                    @value-change="handleValueChange" />
+                </el-tab-pane>
+                <el-tab-pane name="input_register">
+                  <template #label>
+                    <span class="tab-label">输入寄存器 <el-badge :value="getRegisterCount(slave, 'input_register')"
+                        :hidden="getRegisterCount(slave, 'input_register') === 0" /></span>
+                  </template>
+                  <RegisterTable :registers="getRegistersByType(slave, 'input_register')" register-type="input_register"
+                    @edit="handleEditRegister" @delete="handleDeleteRegister" @value-change="handleValueChange" />
+                </el-tab-pane>
+              </el-tabs>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      <el-empty v-else description="暂无 Slave，请添加" />
     </el-card>
 
     <!-- 添加 Slave 对话框 -->
     <el-dialog v-model="showAddSlaveDialog" title="添加 Modbus Slave" width="400px">
       <el-form :model="newSlaveForm" label-width="100px">
         <el-form-item label="Slave ID">
-          <el-input-number
-            v-model="newSlaveForm.slaveId"
-            :min="1"
-            :max="247"
-            style="width: 100%"
-          />
+          <el-input-number v-model="newSlaveForm.slaveId" :min="1" :max="247" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -117,12 +108,8 @@
     </el-dialog>
 
     <!-- 寄存器编辑对话框 -->
-    <ModbusRegisterDialog
-      v-model="showRegisterDialog"
-      :register="editingRegister"
-      :loading="loading"
-      @submit="handleRegisterSubmit"
-    />
+    <ModbusRegisterDialog v-model="showRegisterDialog" :register="editingRegister" :loading="loading"
+      @submit="handleRegisterSubmit" />
   </div>
 </template>
 
@@ -224,19 +211,20 @@ const currentSlave = computed(() =>
 // 寄存器类型 Tab
 const activeRegisterType = ref<ModbusRegisterType>('holding_register')
 
-// 按类型过滤寄存器
-const coilRegisters = computed(() =>
-  currentSlave.value?.registers.filter(r => r.type === 'coil') || []
-)
-const discreteInputRegisters = computed(() =>
-  currentSlave.value?.registers.filter(r => r.type === 'discrete_input') || []
-)
-const holdingRegisters = computed(() =>
-  currentSlave.value?.registers.filter(r => r.type === 'holding_register') || []
-)
-const inputRegisters = computed(() =>
-  currentSlave.value?.registers.filter(r => r.type === 'input_register') || []
-)
+// 获取 Slave 的所有寄存器
+function getSlaveRegisters(slave: ModbusSlaveConfig): ModbusRegisterConfig[] {
+  return slave.registers || []
+}
+
+// 按类型获取寄存器
+function getRegistersByType(slave: ModbusSlaveConfig, type: ModbusRegisterType): ModbusRegisterConfig[] {
+  return slave.registers?.filter(r => r.type === type) || []
+}
+
+// 获取指定类型的寄存器数量
+function getRegisterCount(slave: ModbusSlaveConfig, type: ModbusRegisterType): number {
+  return getRegistersByType(slave, type).length
+}
 
 // 添加 Slave 对话框
 const showAddSlaveDialog = ref(false)
@@ -389,32 +377,100 @@ function getNextSlaveId(): number {
 
 <style lang="scss" scoped>
 .modbus-simulator-panel {
+  .unified-card {
+    :deep(.el-card__body) {
+      padding: 0;
+    }
+  }
+
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .card-title {
+        font-weight: 600;
+        font-size: 16px;
+      }
+    }
   }
 
   .header-actions {
     display: flex;
     align-items: center;
     gap: 8px;
+
+    .el-divider--vertical {
+      height: 20px;
+    }
   }
 
-  .slave-tabs {
-    :deep(.el-tabs__header) {
-      margin-bottom: 0;
+  .interval-select {
+    width: 100px;
+  }
+
+  .slave-content {
+    .slave-tabs {
+      border: none;
+      box-shadow: none;
+
+      :deep(.el-tabs__header) {
+        background: var(--bg-secondary);
+        border-radius: 0;
+        margin: 0;
+      }
+
+      :deep(.el-tabs__content) {
+        padding: 0;
+      }
+    }
+  }
+
+  .slave-registers {
+    padding: 16px;
+
+    .register-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+
+      .register-count {
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+    }
+
+    .register-type-tabs {
+      :deep(.el-tabs__header) {
+        margin-bottom: 12px;
+      }
+
+      .tab-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        :deep(.el-badge__content) {
+          transform: scale(0.8);
+        }
+      }
     }
   }
 
   // 避免表格内容变化导致闪烁
   :deep(.el-table) {
-    // 固定表格高度，避免内容变化导致布局抖动
     min-height: 200px;
   }
 
   :deep(.el-tabs__content) {
-    // 固定内容区高度
     min-height: 250px;
   }
 }
