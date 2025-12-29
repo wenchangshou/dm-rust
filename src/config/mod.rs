@@ -322,9 +322,14 @@ pub fn load_config_from_file(path: &str) -> anyhow::Result<Config> {
     let content = fs::read_to_string(path)
         .map_err(|e| anyhow::anyhow!("读取配置文件失败: {}", e))?;
 
-    // 解析JSON
-    let config: Config = serde_json::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("解析配置文件失败: {}", e))?;
+    // 根据文件扩展名选择反序列化方式
+    let config: Config = if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+        toml::from_str(&content)
+            .map_err(|e| anyhow::anyhow!("解析TOML配置文件失败: {}", e))?
+    } else {
+        serde_json::from_str(&content)
+            .map_err(|e| anyhow::anyhow!("解析JSON配置文件失败: {}", e))?
+    };
 
     Ok(config)
 }

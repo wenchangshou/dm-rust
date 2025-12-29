@@ -1,44 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use tracing::info;
-
-mod config;
-mod db;
-mod device;
-mod mqtt_simulator;
-mod protocols;
-mod service;
-mod tcp_simulator;
-mod utils;
-mod web;
-
-/// 设备控制系统
-#[derive(Parser, Debug)]
-#[command(name = "dm-rust")]
-#[command(author = "Device Control Team")]
-#[command(version = "1.0.0")]
-#[command(about = "工业设备统一控制系统", long_about = None)]
-struct Args {
-    /// 配置文件路径
-    #[arg(short, long, default_value = "config.json")]
-    config: String,
-
-    /// 日志级别 (trace, debug, info, warn, error)
-    #[arg(short, long, default_value = "info")]
-    log_level: String,
-
-    /// 安装为Windows服务
-    #[arg(long)]
-    install: bool,
-
-    /// 卸载Windows服务
-    #[arg(long)]
-    uninstall: bool,
-
-    /// 服务控制命令 (start, stop, restart)
-    #[arg(short = 's', long)]
-    service: Option<String>,
-}
+use dm_rust::{service, Args, run_app};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -95,75 +57,6 @@ async fn main() -> Result<()> {
         }
     };
 
-    info!("设备控制系统启动中...");
-    info!("配置文件: {}", args.config);
-
-    // 加载配置
-    let cfg = config::load_config_from_file(&args.config)?;
-    info!("配置加载成功");
-
-    // 初始化日志系统（使用配置文件中的日志配置，命令行参数作为默认值）
-    utils::logger::init_logger(cfg.log.as_ref(), &log_level)?;
-
-    info!("日志系统初始化完成");
-
-    // 初始化设备控制器
-    let device_controller = device::DeviceController::new(cfg.clone()).await?;
-    info!("设备控制器初始化成功");
-
-    // 初始化数据库（可选）
-    let database = if let Some(ref db_config) = cfg.database {
-        if db_config.enable {
-            match db::Database::new(&db_config.url).await {
-                Ok(db) => {
-                    info!("数据库连接成功");
-                    // 如果配置了资源路径，设置到数据库实例
-                    let db = if let Some(ref resource_config) = cfg.resource {
-                        if resource_config.enable {
-                            db.with_resource_path(resource_config.path.clone())
-                        } else {
-                            db
-                        }
-                    } else {
-                        db
-                    };
-                    Some(db)
-                }
-                Err(e) => {
-                    tracing::error!("数据库连接失败: {:?}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    // 启动Web服务器（HTTP控制接口）
-    let web_server = if let Some(db) = database {
-        web::WebServer::with_database(
-            cfg.clone(),
-            args.config.clone(),
-            device_controller.clone(),
-            db,
-        )
-    } else {
-        web::WebServer::new(cfg.clone(), args.config.clone(), device_controller.clone())
-    };
-    let web_handle = tokio::spawn(async move {
-        if let Err(e) = web_server.run().await {
-            tracing::error!("Web服务器错误: {:?}", e);
-        }
-    });
-
-    info!("系统启动完成");
-
-    // 等待Web服务器任务
-    if let Err(e) = web_handle.await {
-        tracing::error!("Web服务器任务错误: {:?}", e);
-    }
-
-    Ok(())
+    // 运行核心应用
+    run_app(&args.config, &log_level).await
 }

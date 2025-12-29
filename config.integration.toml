@@ -1,0 +1,33 @@
+scenes = []
+
+[web_server]
+port = 18081
+
+[log]
+level = "info"
+target = "console"
+file = "logs/test.log"
+append = false
+
+[task_settings]
+timeout_ms = 1000
+check_interval_ms = 500
+max_retries = 1
+
+[[channels]]
+channel_id = 99
+enable = true
+statute = "mock"
+
+[[channels.methods]]
+name = "test_method"
+description = "Test Method"
+
+[[nodes]]
+global_id = 1
+channel_id = 99
+id = 1
+alias = "Test Node"
+
+
+

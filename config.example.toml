@@ -1,0 +1,332 @@
+# HTTP 控制服务器配置
+[web_server]
+port = 8080
+
+# 日志配置
+[log]
+level = "info"
+target = "both"
+file = "logs/dm-rust.log"
+append = true
+
+# 任务调度配置
+[task_settings]
+timeout_ms = 5000
+check_interval_ms = 500
+max_retries = 3
+
+# 数据库配置 (可选)
+[database]
+enable = false
+url = "mysql://username:password@localhost:3306/database_name"
+
+# 资源管理配置 (可选)
+[resource]
+enable = false
+path = "/data/dm-rust/resources"
+url_prefix = "/static"
+
+# 通道配置
+[[channels]]
+# PJLink协议 - 投影仪控制
+channel_id = 1
+enable = true
+statute = "pjlink"
+
+[channels.arguments]
+addr = "192.168.20.59"
+port = 4352
+
+[[channels.methods]]
+name = "set_input"
+description = "切换输入源"
+[[channels.methods.arguments]]
+name = "source"
+type = "string"
+required = true
+description = "输入源名称：hdmi1, hdmi2, vga 等"
+
+[[channels.methods]]
+name = "get_lamp_hours"
+description = "获取灯泡使用时长"
+
+
+[[channels]]
+# XinkeQ1协议 - 电脑控制模块
+channel_id = 2
+enable = true
+statute = "xinkeQ1"
+# 兼容旧格式，直接放在 params 中
+addr = "192.168.20.123"
+port = 6000
+
+
+[[channels]]
+# Modbus TCP - 直连单个设备
+channel_id = 3
+enable = true
+statute = "modbus"
+type = "tcp"
+# 兼容旧格式
+addr = "192.168.20.130"
+port = 502
+slave_id = 1
+call_interval = 5000
+# auto_call = true
+
+
+[[channels]]
+# Modbus Slave网关 - 管理多个Modbus设备
+channel_id = 4
+enable = true
+statute = "modbus-slave"
+
+[channels.map]
+A = 1
+B = 62
+C = 123
+D = 184
+
+[[channels.device_list]]
+type = "tcp"
+ip = "192.168.20.59"
+port = 2000
+call_interval = 5000
+
+[[channels.device_list.call_list]]
+type = "di"
+device_no = 1
+internal_addr = 1
+external_addr = 0
+count = 16
+
+[[channels.device_list.call_list]]
+type = "do"
+device_no = 1
+internal_addr = 17
+external_addr = 0
+count = 16
+
+
+[[channels]]
+# Wake-on-LAN - 远程唤醒电脑
+channel_id = 5
+enable = true
+statute = "computerControl"
+mac_address = "00:11:22:33:44:55"
+broadcast_addr = "192.168.20.255"
+
+
+[[channels]]
+# Modbus串口 - 通过串口连接设备（示例，默认禁用）
+channel_id = 6
+enable = false
+statute = "modbus"
+type = "serial"
+serial_port = "/dev/ttyUSB0"
+baud_rate = 9600
+slave_id = 1
+call_interval = 3000
+# auto_call = false
+
+
+[[channels]]
+# 自定义协议示例（默认禁用）
+channel_id = 7
+enable = false
+statute = "custom"
+
+[channels.arguments]
+addr = "192.168.20.200"
+port = 8888
+timeout = 3000
+
+[[channels.methods]]
+name = "custom_control"
+description = "自定义控制命令"
+[[channels.methods.arguments]]
+name = "action"
+type = "string"
+required = true
+description = "动作名称"
+[[channels.methods.arguments]]
+name = "value"
+type = "number"
+required = false
+default = 0
+description = "控制值"
+
+[[channels.methods]]
+name = "query_status"
+description = "查询设备状态"
+[[channels.methods.arguments]]
+name = "device_id"
+type = "number"
+required = true
+description = "设备ID"
+
+
+[[channels]]
+# 南京龙港PLC屏幕控制协议（默认禁用）
+channel_id = 8
+enable = false
+statute = "screen-njlg-plc"
+
+[channels.arguments]
+addr = "192.168.20.100"
+port = 502
+timeout = 3000
+
+[[channels.methods]]
+name = "open_device"
+description = "打开指定设备"
+[[channels.methods.arguments]]
+name = "device_id"
+type = "number"
+required = true
+description = "设备编号 (1-10)"
+
+[[channels.methods]]
+name = "close_device"
+description = "关闭指定设备"
+[[channels.methods.arguments]]
+name = "device_id"
+type = "number"
+required = true
+description = "设备编号 (1-10)"
+
+[[channels.methods]]
+name = "batch_control"
+description = "批量控制多个设备"
+[[channels.methods.arguments]]
+name = "devices"
+type = "array"
+required = true
+description = "设备ID数组，如 [1,2,3]"
+[[channels.methods.arguments]]
+name = "action"
+type = "string"
+required = true
+description = "操作类型：open 或 close"
+[[channels.methods.arguments]]
+name = "delay"
+type = "number"
+required = false
+default = 0
+description = "设备间延迟（毫秒）"
+
+
+# 节点配置
+[[nodes]]
+# 投影仪逻辑节点
+global_id = 1
+channel_id = 1
+id = 1
+category = "screen"
+alias = "主投影仪"
+
+[[nodes]]
+# 电脑节点 - 无依赖
+global_id = 2
+channel_id = 2
+id = 1
+category = "pc"
+alias = "1号电脑"
+
+[[nodes]]
+# 电脑节点 - 依赖投影仪先开启
+global_id = 3
+channel_id = 2
+id = 2
+category = "pc"
+alias = "2号电脑"
+depend_strategy = "auto"
+[[nodes.depend]]
+id = 1
+value = 1
+
+[[nodes]]
+# 灯光控制节点
+global_id = 4
+channel_id = 3
+id = 1
+category = "light"
+alias = "主灯光"
+
+[[nodes]]
+# 副灯光 - 依赖主灯光和投影仪状态
+global_id = 5
+channel_id = 3
+id = 2
+category = "light"
+alias = "副灯光"
+depend_strategy = "manual"
+[[nodes.depend]]
+id = 1
+value = 1
+[[nodes.depend]]
+id = 4
+value = 1
+
+
+# 场景配置
+[[scenes]]
+# 开机场景 - 按顺序启动所有设备
+name = "开机场景"
+
+[[scenes.nodes]]
+id = 1
+value = 1
+
+[[scenes.nodes]]
+id = 2
+value = 1
+delay = 2000
+
+[[scenes.nodes]]
+id = 3
+value = 1
+delay = 1000
+
+[[scenes.nodes]]
+id = 4
+value = 1
+delay = 500
+
+
+[[scenes]]
+# 关机场景 - 逆序关闭设备
+name = "关机场景"
+
+[[scenes.nodes]]
+id = 4
+value = 0
+
+[[scenes.nodes]]
+id = 3
+value = 0
+delay = 500
+
+[[scenes.nodes]]
+id = 2
+value = 0
+delay = 500
+
+[[scenes.nodes]]
+id = 1
+value = 0
+delay = 2000
+
+
+[[scenes]]
+# 演示模式 - 只开启投影和灯光
+name = "演示模式"
+
+[[scenes.nodes]]
+id = 1
+value = 1
+
+[[scenes.nodes]]
+id = 4
+value = 1
+delay = 1000

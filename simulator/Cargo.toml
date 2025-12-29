@@ -1,0 +1,54 @@
+[package]
+name = "simulator"
+version = "1.0.0"
+edition = "2021"
+authors = ["Device Control Team"]
+description = "TCP 和 MQTT 协议模拟器"
+
+[features]
+default = []
+swagger = ["utoipa"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = { version = "0.6", features = ["multipart", "ws"] }
+tower-http = { version = "0.4", features = ["cors", "fs"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async traits
+async-trait = "0.1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utils
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "5"
+regex = "1"
+hex = "0.4"
+anyhow = "1"
+rand = "0.8"
+broadcast = "0.1"
+thiserror = "1"
+
+# MQTT
+rumqttd = "0.19"
+rumqttc = "0.24"
+
+# Modbus
+tokio-modbus = { version = "0.13", default-features = false, features = ["tcp"] }
+crc16 = "0.4"
+
+# Serial
+tokio-serial = "5"
+
+# Swagger (optional)
+utoipa = { version = "3", features = ["axum_extras"], optional = true }

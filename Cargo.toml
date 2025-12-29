@@ -23,6 +23,8 @@ tokio-tungstenite = "0.20"
 # 序列化/反序列化
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# TOML 支持
+toml = "0.7"
 # 十六进制编解码
 hex = "0.4"
 # 配置管理
@@ -69,9 +71,7 @@ sqlx = { version = "0.7", features = ["runtime-tokio", "mysql", "chrono", "uuid"
 utoipa = { version = "4", features = ["axum_extras", "chrono", "uuid"] }
 utoipa-swagger-ui = { version = "4", features = ["axum"] }
 crc16 = "0.4.0"
-# MQTT Broker 和 Client
-rumqttd = "0.19"
-rumqttc = "0.24"
+
 
 [target.'cfg(windows)'.dependencies]
 # Windows 服务支持
@@ -79,3 +79,8 @@ windows-service = "0.6"
 
 [dev-dependencies]
 mockall = "0.12"
+reqwest = { version = "0.11", features = ["json"] }
+
+[workspace]
+members = ["simulator", "."]
+

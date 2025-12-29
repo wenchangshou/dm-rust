@@ -2,96 +2,67 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
-      - main
-      - develop
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - master
-      - main
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-check-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo check --all-features
-
-  test:
-    name: Test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo test --verbose
-        continue-on-error: true
-
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all -- --check
-        continue-on-error: true
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-        continue-on-error: true
-
   build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo build --release --verbose
+    - uses: actions/checkout@v3
+    
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
+
+    - name: Clippy
+      run: cargo clippy --workspace --all-targets -- -D warnings
+
+    - name: Build
+      run: cargo build --workspace --verbose
+
+    - name: Create Test Config
+      run: |
+        # Create a basic test config for integration tests
+        echo '[web_server]' > config.integration.toml
+        echo 'port = 18081' >> config.integration.toml
+        echo '[log]' >> config.integration.toml
+        echo 'level = "error"' >> config.integration.toml
+        echo 'target = "console"' >> config.integration.toml
+        echo 'file = "logs/test.log"' >> config.integration.toml
+        echo 'append = false' >> config.integration.toml
+        echo '[task_settings]' >> config.integration.toml
+        echo 'timeout_ms = 1000' >> config.integration.toml
+        echo 'check_interval_ms = 500' >> config.integration.toml
+        echo 'max_retries = 1' >> config.integration.toml
+        echo '[[channels]]' >> config.integration.toml
+        echo 'channel_id = 99' >> config.integration.toml
+        echo 'enable = true' >> config.integration.toml
+        echo 'statute = "mock"' >> config.integration.toml
+        echo '[[nodes]]' >> config.integration.toml
+        echo 'global_id = 1' >> config.integration.toml
+        echo 'channel_id = 99' >> config.integration.toml
+        echo 'id = 1' >> config.integration.toml
+        echo 'alias = "Test Node"' >> config.integration.toml
+
+    - name: Run Tests
+      run: cargo test --workspace --verbose

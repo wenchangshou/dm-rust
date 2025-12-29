@@ -15,7 +15,6 @@ use tower_http::cors::CorsLayer;
 use crate::config::{Config, ResourceConfig};
 use crate::db::Database;
 use crate::device::DeviceController;
-use crate::tcp_simulator::TcpSimulatorManager;
 
 // 导入子模块
 use super::db_api::{
@@ -35,46 +34,6 @@ use super::file_api::{
 use super::file_page::{CONFIG_MANAGER_HTML, DEBUG_CONSOLE_HTML, FILE_MANAGER_HTML};
 use super::resource_api::{serve_static_resource, upload_material, ResourceManagerState};
 // use super::swagger::swagger_routes;
-use super::tcp_simulator_api::{
-    add_modbus_slave,
-    batch_update_modbus_registers,
-    clear_fault,
-    clear_packets,
-    create_from_template,
-    create_simulator,
-    create_template_direct,
-    delete_modbus_register,
-    delete_modbus_slave,
-    delete_simulator,
-    delete_template,
-    disconnect_client,
-    download_debug_log,
-    get_debug_status,
-    // Modbus API
-    get_modbus_slaves,
-    // 报文监控 API
-    get_packets,
-    get_protocols,
-    get_simulator,
-    // 客户端连接 API
-    list_clients,
-    list_simulators,
-    list_templates,
-    save_as_template,
-    // Debug 模式 API
-    set_debug_mode,
-    set_modbus_register,
-    set_online,
-    set_packet_monitor_settings,
-    start_simulator,
-    stop_simulator,
-    trigger_fault,
-    update_modbus_register_value,
-    update_simulator_config,
-    update_simulator_info,
-    update_simulator_state,
-    update_template,
-};
 
 /// API 路由前缀
 const API_PREFIX: &str = "/lspcapi";
@@ -194,92 +153,7 @@ impl WebServer {
             }
         }
 
-        // TCP 模拟器路由
-        {
-            tracing::info!("TCP 模拟器功能已启用");
-            let simulator_manager = Arc::new(TcpSimulatorManager::new());
 
-            // 从持久化存储加载模拟器
-            match simulator_manager.load_from_persistence().await {
-                Ok(count) => {
-                    if count > 0 {
-                        tracing::info!("已从持久化存储加载 {} 个模拟器", count);
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("加载持久化模拟器失败: {}", e);
-                }
-            }
-
-            let simulator_routes = Router::new()
-                .route("/protocols", get(get_protocols))
-                .route("/create", post(create_simulator))
-                .route("/list", get(list_simulators))
-                .route("/:id", get(get_simulator))
-                .route("/:id", delete(delete_simulator))
-                .route("/:id/start", post(start_simulator))
-                .route("/:id/stop", post(stop_simulator))
-                .route("/:id/state", post(update_simulator_state))
-                .route("/:id/fault", post(trigger_fault))
-                .route("/:id/clear-fault", post(clear_fault))
-                .route("/:id/online", post(set_online))
-                // Modbus 特定路由
-                .route("/:id/modbus/slaves", get(get_modbus_slaves))
-                .route("/:id/modbus/slave", post(add_modbus_slave))
-                .route("/:id/modbus/slave/:slave_id", delete(delete_modbus_slave))
-                .route("/:id/modbus/register", post(set_modbus_register))
-                .route("/:id/modbus/register/delete", post(delete_modbus_register))
-                .route(
-                    "/:id/modbus/register/value",
-                    post(update_modbus_register_value),
-                )
-                .route(
-                    "/:id/modbus/registers/batch",
-                    post(batch_update_modbus_registers),
-                )
-                // 报文监控路由
-                .route("/:id/packets", get(get_packets))
-                .route("/:id/packets", delete(clear_packets))
-                .route("/:id/packets/settings", post(set_packet_monitor_settings))
-                // 客户端连接管理路由
-                .route("/:id/clients", get(list_clients))
-                .route(
-                    "/:id/clients/:client_id/disconnect",
-                    post(disconnect_client),
-                )
-                // Debug 模式路由
-                .route("/:id/debug", get(get_debug_status))
-                .route("/:id/debug", post(set_debug_mode))
-                .route("/:id/debug/log", get(download_debug_log))
-                // 配置更新
-                .route("/:id/config", post(update_simulator_config))
-                .route("/:id/info", post(update_simulator_info))
-                // 模板管理路由
-                .route(
-                    "/templates",
-                    get(list_templates).post(create_template_direct),
-                )
-                .route(
-                    "/templates/:id",
-                    delete(delete_template).put(update_template),
-                )
-                .route("/create-from-template", post(create_from_template))
-                .route("/:id/save-as-template", post(save_as_template))
-                .layer(Extension(simulator_manager));
-
-            app = app.nest(&format!("{}/tcp-simulator", API_PREFIX), simulator_routes);
-        }
-
-        // MQTT 模拟器路由
-        {
-            tracing::info!("MQTT 模拟器功能已启用");
-            let mqtt_manager = Arc::new(crate::mqtt_simulator::MqttSimulatorManager::new());
-
-            let mqtt_routes =
-                super::mqtt_simulator_api::mqtt_simulator_routes().layer(Extension(mqtt_manager));
-
-            app = app.nest(&format!("{}/mqtt-simulator", API_PREFIX), mqtt_routes);
-        }
 
         // Swagger UI（仅在 swagger feature 启用时）
         #[cfg(feature = "swagger")]
