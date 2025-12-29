@@ -13,7 +13,7 @@ mod dependency_resolver;
 
 pub use channel_manager::ChannelManager;
 pub use node_manager::{NodeManager, NodeState};
-pub use task_scheduler::{TaskScheduler, Task, TaskStatus};
+pub use task_scheduler::TaskScheduler;
 pub use scene_executor::{SceneExecutor, SceneExecutionStatus};
 pub use dependency_resolver::DependencyResolver;
 

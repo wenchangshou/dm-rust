@@ -11,7 +11,29 @@
             <span>返回</span>
           </el-button>
           <div class="title-group">
-            <h2>{{ simulator.name }}</h2>
+            <template v-if="isEditingInfo">
+              <el-input v-model="infoForm.name" size="large" class="name-edit-input" placeholder="请输入模拟器名称" />
+              <div class="edit-actions">
+                <el-button type="success" circle size="small" :loading="savingInfo" @click="handleSaveInfo">
+                  <el-icon>
+                    <Check />
+                  </el-icon>
+                </el-button>
+                <el-button circle size="small" @click="handleCancelEditInfo">
+                  <el-icon>
+                    <Close />
+                  </el-icon>
+                </el-button>
+              </div>
+            </template>
+            <template v-else>
+              <h2>{{ simulator.name }}</h2>
+              <el-button link class="edit-info-btn" @click="handleEditInfo">
+                <el-icon>
+                  <Edit />
+                </el-icon>
+              </el-button>
+            </template>
             <StatusBadge :status="simulator.status" />
           </div>
         </div>
@@ -55,9 +77,19 @@
                 <InfoFilled />
               </el-icon>
               <span>基本信息</span>
+              <el-button v-if="!isEditingInfo" link type="primary" size="small" @click="handleEditInfo">编辑</el-button>
             </div>
           </template>
           <el-descriptions :column="1" border>
+            <el-descriptions-item label="名称">
+              <span v-if="!isEditingInfo">{{ simulator.name }}</span>
+              <el-input v-else v-model="infoForm.name" size="small" />
+            </el-descriptions-item>
+            <el-descriptions-item label="描述">
+              <span v-if="!isEditingInfo" class="description-text">{{ simulator.description || '无描述' }}</span>
+              <el-input v-else v-model="infoForm.description" type="textarea" :rows="2" size="small"
+                placeholder="请输入描述" />
+            </el-descriptions-item>
             <el-descriptions-item label="ID">
               <code class="id-code">{{ simulator.id }}</code>
             </el-descriptions-item>
@@ -155,8 +187,34 @@
       <!-- Modbus 模拟器专用面板 -->
       <ModbusSimulatorPanel v-if="isModbusProtocol" :simulator-id="id" class="modbus-panel" />
 
+      <!-- 自定义协议规则面板 -->
+      <el-card v-if="isCustomProtocol && simulator?.protocol_config" class="state-card rule-panel">
+        <template #header>
+          <div class="card-header-flex">
+            <div class="card-title">
+              <el-icon>
+                <List />
+              </el-icon>
+              <span>协议规则配置</span>
+            </div>
+            <div class="card-actions">
+              <template v-if="isEditingRules">
+                <el-button size="small" @click="handleCancelEditRules">取消</el-button>
+                <el-button type="primary" size="small" :loading="savingRules" @click="handleSaveRules">保存</el-button>
+              </template>
+              <el-button v-else type="primary" link @click="handleEditRules">
+                <el-icon>
+                  <Edit />
+                </el-icon> 编辑
+              </el-button>
+            </div>
+          </div>
+        </template>
+        <RuleEditor v-model="ruleConfig" :readonly="!isEditingRules" />
+      </el-card>
+
       <!-- 其他协议状态值 -->
-      <el-card v-else class="state-card">
+      <el-card v-else-if="!isCustomProtocol" class="state-card">
         <template #header>
           <div class="card-title">
             <el-icon>
@@ -207,12 +265,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, VideoPlay, VideoPause, Refresh, InfoFilled, DataLine, Setting, List, Files } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ArrowLeft, VideoPlay, VideoPause, Refresh, InfoFilled, DataLine, Setting, List, Files, Edit, Check, Close } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import ModbusSimulatorPanel from '@/components/simulator/ModbusSimulatorPanel.vue'
 import PacketMonitorPanel from '@/components/simulator/PacketMonitorPanel.vue'
+import RuleEditor from '@/components/simulator/RuleEditor.vue'
 import * as simulatorApi from '@/api/simulator'
 
 const props = defineProps<{
@@ -226,6 +285,11 @@ const simulator = computed(() => store.currentSimulator)
 const isOnline = ref(true)
 const selectedFault = ref('')
 
+// 规则编辑相关
+const isEditingRules = ref(false)
+const savingRules = ref(false)
+const ruleConfig = ref<any>(null)
+
 // 模板保存相关
 const showSaveTemplateDialog = ref(false)
 const savingTemplate = ref(false)
@@ -234,9 +298,21 @@ const templateForm = reactive({
   description: ''
 })
 
+// 基本信息编辑相关
+const isEditingInfo = ref(false)
+const savingInfo = ref(false)
+const infoForm = reactive({
+  name: '',
+  description: ''
+})
+
 const isModbusProtocol = computed(() => {
   const protocol = simulator.value?.protocol?.toLowerCase() || ''
   return protocol.includes('modbus')
+})
+
+const isCustomProtocol = computed(() => {
+  return simulator.value?.protocol === 'custom'
 })
 
 const stateValues = computed(() => {
@@ -254,12 +330,88 @@ watch(simulator, (val) => {
     if (!templateForm.name) {
       templateForm.name = `${val.name}_模板`
     }
+    // 更新规则配置（如果不在编辑模式）
+    if (!isEditingRules.value && val.protocol_config) {
+      ruleConfig.value = JSON.parse(JSON.stringify(val.protocol_config))
+    }
   }
-})
+}, { immediate: true })
 
 onMounted(() => {
   refresh()
 })
+
+function handleEditRules() {
+  if (simulator.value?.protocol_config) {
+    ruleConfig.value = JSON.parse(JSON.stringify(simulator.value.protocol_config))
+  }
+  isEditingRules.value = true
+}
+
+function handleCancelEditRules() {
+  isEditingRules.value = false
+  if (simulator.value?.protocol_config) {
+    ruleConfig.value = JSON.parse(JSON.stringify(simulator.value.protocol_config))
+    ruleConfig.value = JSON.parse(JSON.stringify(simulator.value.protocol_config))
+  }
+}
+
+function handleEditInfo() {
+  if (simulator.value) {
+    infoForm.name = simulator.value.name
+    infoForm.description = simulator.value.description || ''
+    isEditingInfo.value = true
+  }
+}
+
+function handleCancelEditInfo() {
+  isEditingInfo.value = false
+}
+
+async function handleSaveInfo() {
+  if (!infoForm.name) {
+    ElMessage.warning('名称不能为空')
+    return
+  }
+
+  savingInfo.value = true
+  try {
+    await simulatorApi.updateSimulatorInfo(props.id, {
+      name: infoForm.name,
+      description: infoForm.description
+    })
+    ElMessage.success('基本信息已更新')
+    isEditingInfo.value = false
+    refresh()
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新失败')
+  } finally {
+    savingInfo.value = false
+  }
+}
+
+async function handleSaveRules() {
+  savingRules.value = true
+  try {
+    await simulatorApi.updateSimulatorConfig(props.id, ruleConfig.value)
+    ElMessage.success('规则配置已更新')
+    isEditingRules.value = false
+    refresh()
+
+    // 如果正在运行，提示需要重启
+    if (simulator.value?.status === 'running') {
+      ElMessageBox.alert('您更新了运行中模拟器的规则配置，新规则将在模拟器重启后生效。', '配置已保存', {
+        confirmButtonText: '知道了',
+        type: 'info'
+      })
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新失败')
+  } finally {
+    savingRules.value = false
+  }
+} // End of handleSaveRules
+
 
 function refresh() {
   store.fetchSimulator(props.id)
@@ -403,6 +555,43 @@ function formatBytes(bytes: number): string {
     background-clip: text;
     margin: 0;
   }
+
+  gap: 12px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+  }
+
+  .name-edit-input {
+    width: 250px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .edit-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .edit-info-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover .edit-info-btn {
+    opacity: 1;
+  }
+}
+
+.description-text {
+  white-space: pre-wrap;
+  color: var(--text-secondary);
 }
 
 .action-group {
@@ -452,6 +641,18 @@ function formatBytes(bytes: number): string {
   .el-icon {
     color: #667eea;
   }
+}
+
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .id-code,

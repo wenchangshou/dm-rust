@@ -8,7 +8,7 @@ use axum::{
 };
 use serde::Deserialize;
 use std::sync::Arc;
-use utoipa::{IntoParams, ToSchema};
+use utoipa::IntoParams;
 
 use crate::db::{
     Database,

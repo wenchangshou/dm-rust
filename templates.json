@@ -1,0 +1,36 @@
+[
+  {
+    "id": "5b7f25fb-1870-4631-8d4b-cddee374330d",
+    "name": "v1",
+    "description": "",
+    "protocol": "modbus",
+    "transport": "tcp",
+    "config": {
+      "defaultSlaveId": 1,
+      "slaves": [
+        {
+          "registers": [
+            {
+              "address": 0,
+              "dataType": "uint16",
+              "generator": {
+                "interval": 1000,
+                "max": 1,
+                "min": 0,
+                "mode": "random"
+              },
+              "name": "开关",
+              "readonly": false,
+              "type": "holding_register",
+              "value": 0
+            }
+          ],
+          "slaveId": 1
+        }
+      ]
+    },
+    "values": null,
+    "created_at": "2025-12-29T09:55:45.202360287Z",
+    "updated_at": "2025-12-29T09:56:07.424322826Z"
+  }
+]

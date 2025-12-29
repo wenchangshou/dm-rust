@@ -10,6 +10,7 @@ use tracing::{debug, error, info, warn};
 
 use super::handler::{HandleResult, ProtocolHandler};
 use super::state::{ClientConnection, SimulatorState, SimulatorStatus};
+use async_trait::async_trait;
 
 /// TCP 服务器配置
 #[derive(Debug, Clone)]
@@ -31,8 +32,10 @@ impl Default for ServerConfig {
     }
 }
 
+use super::transport::SimulatorServer;
+
 /// TCP 模拟服务器
-pub struct TcpSimulatorServer {
+pub struct TcpServer {
     /// 服务器配置
     config: ServerConfig,
     /// 协议处理器
@@ -47,25 +50,10 @@ pub struct TcpSimulatorServer {
     server_handle: Option<JoinHandle<()>>,
 }
 
-impl TcpSimulatorServer {
-    /// 创建新的 TCP 服务器
-    pub fn new(
-        config: ServerConfig,
-        handler: Arc<dyn ProtocolHandler>,
-        initial_state: SimulatorState,
-    ) -> Self {
-        Self {
-            config,
-            handler,
-            state: Arc::new(RwLock::new(initial_state)),
-            status: Arc::new(RwLock::new(SimulatorStatus::Stopped)),
-            shutdown_tx: None,
-            server_handle: None,
-        }
-    }
-
+#[async_trait]
+impl SimulatorServer for TcpServer {
     /// 启动服务器
-    pub async fn start(&mut self) -> Result<(), String> {
+    async fn start(&mut self) -> Result<(), String> {
         // 检查是否已经运行
         {
             let status = self.status.read().await;
@@ -112,7 +100,7 @@ impl TcpSimulatorServer {
     }
 
     /// 停止服务器
-    pub async fn stop(&mut self) -> Result<(), String> {
+    async fn stop(&mut self) -> Result<(), String> {
         // 发送停止信号
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
@@ -133,23 +121,39 @@ impl TcpSimulatorServer {
         Ok(())
     }
 
-    /// 获取当前状态
-    pub async fn get_state(&self) -> SimulatorState {
-        self.state.read().await.clone()
+    fn get_state_ref(&self) -> Arc<RwLock<SimulatorState>> {
+        self.state.clone()
     }
 
-    /// 修改状态
+    fn get_status_ref(&self) -> Arc<RwLock<SimulatorStatus>> {
+        self.status.clone()
+    }
+}
+
+impl TcpServer {
+    /// 创建新的 TCP 服务器
+    pub fn new(
+        config: ServerConfig,
+        handler: Arc<dyn ProtocolHandler>,
+        initial_state: SimulatorState,
+    ) -> Self {
+        Self {
+            config,
+            handler,
+            state: Arc::new(RwLock::new(initial_state)),
+            status: Arc::new(RwLock::new(SimulatorStatus::Stopped)),
+            shutdown_tx: None,
+            server_handle: None,
+        }
+    }
+
+    /// 修改状态 (保留 helper method)
     pub async fn update_state<F>(&self, f: F)
     where
         F: FnOnce(&mut SimulatorState),
     {
         let mut state = self.state.write().await;
         f(&mut state);
-    }
-
-    /// 获取运行状态
-    pub async fn get_status(&self) -> SimulatorStatus {
-        *self.status.read().await
     }
 
     /// 服务器主循环
@@ -403,7 +407,7 @@ impl TcpSimulatorServer {
     }
 }
 
-impl Drop for TcpSimulatorServer {
+impl Drop for TcpServer {
     fn drop(&mut self) {
         // 发送停止信号
         if let Some(tx) = self.shutdown_tx.take() {

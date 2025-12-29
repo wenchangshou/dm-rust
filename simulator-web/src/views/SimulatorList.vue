@@ -117,7 +117,7 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="连接" width="100" align="center">
+            <el-table-column label="连接" width="140" align="center">
               <template #default="{ row }">
                 <el-badge v-if="row.state.stats.active_connections > 0" :value="row.state.stats.active_connections"
                   class="connection-badge clickable" @click="handleShowConnections(row)">
@@ -151,7 +151,7 @@
                 <span v-else class="debug-disabled">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="160">
+            <el-table-column label="操作" width="280">
               <template #default="{ row }">
                 <div class="action-buttons">
                   <el-button v-if="row.status === 'stopped'" type="success" size="small" class="action-btn"
@@ -167,10 +167,17 @@
                     </el-icon>
                     停止
                   </el-button>
+                  <el-button type="primary" size="small" class="action-btn" @click="handleEdit(row)">
+                    <el-icon>
+                      <Edit />
+                    </el-icon>
+                    编辑
+                  </el-button>
                   <el-button type="danger" size="small" class="action-btn" @click="handleDelete(row)">
                     <el-icon>
                       <Delete />
                     </el-icon>
+                    删除
                   </el-button>
                 </div>
               </template>
@@ -182,10 +189,30 @@
       <el-tab-pane label="模板列表" name="templates">
         <TemplateList ref="templateListRef" />
       </el-tab-pane>
+
+      <el-tab-pane label="MQTT 模拟器" name="mqtt">
+        <MqttSimulatorList ref="mqttListRef" />
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 创建对话框 -->
     <CreateSimulatorDialog v-model:visible="showCreateDialog" :protocols="store.protocols" @created="handleCreated" />
+
+    <!-- 编辑模拟器对话框 -->
+    <el-dialog v-model="showEditDialog" title="编辑模拟器" width="500px">
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="名称" required>
+          <el-input v-model="editForm.name" placeholder="请输入模拟器名称" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="editForm.description" type="textarea" placeholder="请输入描述（可选）" :rows="3" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button type="primary" :loading="savingEdit" @click="handleSaveEdit">保存</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 客户端连接对话框 -->
     <el-dialog v-model="showConnectionsDialog" :title="`客户端连接 - ${selectedSimulator?.name || ''}`" width="600px"
@@ -196,8 +223,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Plus, VideoPlay, VideoPause, Delete, Grid, Connection, ArrowRight, Download } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted } from 'vue'
+import { Plus, VideoPlay, VideoPause, Delete, Grid, Connection, ArrowRight, Download, Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
 import type { SimulatorInfo } from '@/types/simulator'
@@ -205,6 +232,7 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import CreateSimulatorDialog from '@/components/simulator/CreateSimulatorDialog.vue'
 import ClientConnectionsPanel from '@/components/simulator/ClientConnectionsPanel.vue'
 import TemplateList from '@/components/simulator/TemplateList.vue'
+import MqttSimulatorList from '@/components/mqtt/MqttSimulatorList.vue'
 import * as simulatorApi from '@/api/simulator'
 
 const store = useSimulatorStore()
@@ -212,7 +240,6 @@ const showCreateDialog = ref(false)
 const showConnectionsDialog = ref(false)
 const selectedSimulator = ref<SimulatorInfo | null>(null)
 const activeTab = ref('simulators')
-const templateListRef = ref<InstanceType<typeof TemplateList>>()
 
 onMounted(() => {
   store.fetchSimulators()
@@ -276,6 +303,46 @@ async function handleToggleDebug(simulator: SimulatorInfo, enabled: boolean) {
 function handleDownloadLog(simulator: SimulatorInfo) {
   const url = simulatorApi.getDebugLogUrl(simulator.id)
   window.open(url, '_blank')
+}
+
+// 编辑模拟器相关
+const showEditDialog = ref(false)
+const savingEdit = ref(false)
+const editingSimulatorId = ref<string | null>(null)
+const editForm = reactive({
+  name: '',
+  description: ''
+})
+
+function handleEdit(simulator: SimulatorInfo) {
+  editingSimulatorId.value = simulator.id
+  editForm.name = simulator.name
+  editForm.description = simulator.description || ''
+  showEditDialog.value = true
+}
+
+async function handleSaveEdit() {
+  if (!editForm.name) {
+    ElMessage.warning('名称不能为空')
+    return
+  }
+
+  if (!editingSimulatorId.value) return
+
+  savingEdit.value = true
+  try {
+    await simulatorApi.updateSimulatorInfo(editingSimulatorId.value, {
+      name: editForm.name,
+      description: editForm.description
+    })
+    ElMessage.success('模拟器信息已更新')
+    showEditDialog.value = false
+    await store.fetchSimulators()
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新失败')
+  } finally {
+    savingEdit.value = false
+  }
 }
 </script>
 

@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use crate::tcp_simulator::{
     protocols::{ModbusValues, RegisterConfig, RegisterType, SlaveConfig},
-    state::PacketRecord,
     ProtocolInfo, SimulatorInfo, SimulatorStatus, TcpSimulatorConfig, TcpSimulatorManager,
 };
 use crate::web::response::ApiResponse;
@@ -27,6 +26,9 @@ pub struct CreateSimulatorRequest {
     /// 显示名称
     #[cfg_attr(feature = "swagger", schema(example = "PLC 模拟器"))]
     pub name: String,
+    /// 描述
+    #[serde(default)]
+    pub description: String,
     /// 协议类型
     #[cfg_attr(feature = "swagger", schema(example = "modbus"))]
     pub protocol: String,
@@ -43,6 +45,9 @@ pub struct CreateSimulatorRequest {
     /// 创建后自动启动（可选，默认 true）
     #[serde(default = "default_auto_start")]
     pub auto_start: bool,
+    /// 协议配置（可选）
+    #[serde(default)]
+    pub protocol_config: Option<Value>,
 }
 
 fn default_bind_addr() -> String {
@@ -111,12 +116,15 @@ pub async fn create_simulator(
     Json(req): Json<CreateSimulatorRequest>,
 ) -> Json<Value> {
     let config = TcpSimulatorConfig {
-        id: String::new(),
+        id: String::new(), // 将由 manager 生成
         name: req.name,
+        description: req.description,
         protocol: req.protocol,
+        transport: "tcp".to_string(), // Default to tcp for create_simulator API
         bind_addr: req.bind_addr,
         port: req.port,
         initial_state: req.initial_state,
+        protocol_config: req.protocol_config,
     };
 
     match manager.create(config).await {
@@ -793,6 +801,66 @@ pub async fn set_packet_monitor_settings(
     }
 }
 
+/// 更新模拟器配置请求
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
+pub struct UpdateSimulatorConfigRequest {
+    /// 协议配置
+    pub protocol_config: Option<Value>,
+}
+
+/// 更新模拟器配置
+///
+/// POST /lspcapi/tcp-simulator/:id/config
+pub async fn update_simulator_config(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateSimulatorConfigRequest>,
+) -> Json<Value> {
+    match manager.update_config(&id, req.protocol_config).await {
+        Ok(info) => Json(serde_json::json!({
+            "state": 0,
+            "message": "配置更新成功，请重启模拟器以生效",
+            "data": info
+        })),
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+
+/// 更新模拟器信息请求（名称和描述）
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "swagger", derive(ToSchema))]
+pub struct UpdateSimulatorInfoRequest {
+    /// 显示名称
+    pub name: Option<String>,
+    /// 描述
+    pub description: Option<String>,
+}
+
+/// 更新模拟器基本信息（名称和描述）
+///
+/// POST /lspcapi/tcp-simulator/:id/info
+pub async fn update_simulator_info(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateSimulatorInfoRequest>,
+) -> Json<Value> {
+    match manager.update_info(&id, req.name, req.description).await {
+        Ok(info) => Json(serde_json::json!({
+            "state": 0,
+            "message": "信息更新成功",
+            "data": info
+        })),
+        Err(e) => Json(serde_json::json!({
+            "state": 30006,
+            "message": e
+        })),
+    }
+}
+
 // ============ 客户端连接管理 API ============
 
 use crate::tcp_simulator::state::ClientConnection;
@@ -812,6 +880,8 @@ pub struct SaveAsTemplateRequest {
     pub description: String,
 }
 
+use crate::tcp_simulator::template::UpdateTemplateRequest;
+
 /// 获取模板列表
 ///
 /// GET /lspcapi/tcp-simulator/templates
@@ -828,16 +898,45 @@ pub async fn list_templates(
 pub async fn delete_template(
     Extension(manager): Extension<Arc<TcpSimulatorManager>>,
     Path(id): Path<String>,
-) -> Json<Value> {
+) -> Json<ApiResponse<()>> {
     match manager.template_manager.delete(&id).await {
-        Ok(_) => Json(serde_json::json!({
-            "state": 0,
-            "message": "模板已删除"
-        })),
-        Err(e) => Json(serde_json::json!({
-            "state": 30006,
-            "message": e
-        })),
+        Ok(_) => Json(ApiResponse::<()>::success("模板删除成功", ())),
+        Err(e) => Json(ApiResponse::<()>::error(500, &e)),
+    }
+}
+
+/// 更新模板
+///
+/// PUT /lspcapi/tcp-simulator/templates/:id
+pub async fn update_template(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateTemplateRequest>,
+) -> Json<ApiResponse<SimulatorTemplate>> {
+    match manager.template_manager.update(&id, req).await {
+        Ok(template) => Json(ApiResponse::success("模板更新成功", template)),
+        Err(e) => Json(ApiResponse {
+            state: 500,
+            message: e, // e is String from update error
+            data: None,
+        }),
+    }
+}
+
+/// 创建模板 (直接)
+///
+/// POST /lspcapi/tcp-simulator/templates
+pub async fn create_template_direct(
+    Extension(manager): Extension<Arc<TcpSimulatorManager>>,
+    Json(req): Json<crate::tcp_simulator::template::CreateTemplateRequest>,
+) -> Json<ApiResponse<SimulatorTemplate>> {
+    match manager.template_manager.create(req).await {
+        Ok(template) => Json(ApiResponse::success("模板创建成功", template)),
+        Err(e) => Json(ApiResponse {
+            state: 500,
+            message: e,
+            data: None,
+        }),
     }
 }
 

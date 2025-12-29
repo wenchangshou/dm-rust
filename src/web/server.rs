@@ -34,7 +34,7 @@ use super::file_api::{
 };
 use super::file_page::{CONFIG_MANAGER_HTML, DEBUG_CONSOLE_HTML, FILE_MANAGER_HTML};
 use super::resource_api::{serve_static_resource, upload_material, ResourceManagerState};
-use super::swagger::swagger_routes;
+// use super::swagger::swagger_routes;
 use super::tcp_simulator_api::{
     add_modbus_slave,
     batch_update_modbus_registers,
@@ -42,6 +42,7 @@ use super::tcp_simulator_api::{
     clear_packets,
     create_from_template,
     create_simulator,
+    create_template_direct,
     delete_modbus_register,
     delete_modbus_slave,
     delete_simulator,
@@ -69,7 +70,10 @@ use super::tcp_simulator_api::{
     stop_simulator,
     trigger_fault,
     update_modbus_register_value,
+    update_simulator_config,
+    update_simulator_info,
     update_simulator_state,
+    update_template,
 };
 
 /// API 路由前缀
@@ -152,7 +156,7 @@ impl WebServer {
 
         // 基础应用路由
         let config_path = self.config_path.clone();
-        let config_for_save = self.config.clone();
+        let _config_for_save = self.config.clone();
         let mut app = Router::new()
             .route("/", get(hello))
             .route(&format!("{}/debug", API_PREFIX), get(debug_console_page))
@@ -247,14 +251,34 @@ impl WebServer {
                 .route("/:id/debug", get(get_debug_status))
                 .route("/:id/debug", post(set_debug_mode))
                 .route("/:id/debug/log", get(download_debug_log))
+                // 配置更新
+                .route("/:id/config", post(update_simulator_config))
+                .route("/:id/info", post(update_simulator_info))
                 // 模板管理路由
-                .route("/templates", get(list_templates))
-                .route("/templates/:id", delete(delete_template))
+                .route(
+                    "/templates",
+                    get(list_templates).post(create_template_direct),
+                )
+                .route(
+                    "/templates/:id",
+                    delete(delete_template).put(update_template),
+                )
                 .route("/create-from-template", post(create_from_template))
                 .route("/:id/save-as-template", post(save_as_template))
                 .layer(Extension(simulator_manager));
 
             app = app.nest(&format!("{}/tcp-simulator", API_PREFIX), simulator_routes);
+        }
+
+        // MQTT 模拟器路由
+        {
+            tracing::info!("MQTT 模拟器功能已启用");
+            let mqtt_manager = Arc::new(crate::mqtt_simulator::MqttSimulatorManager::new());
+
+            let mqtt_routes =
+                super::mqtt_simulator_api::mqtt_simulator_routes().layer(Extension(mqtt_manager));
+
+            app = app.nest(&format!("{}/mqtt-simulator", API_PREFIX), mqtt_routes);
         }
 
         // Swagger UI（仅在 swagger feature 启用时）

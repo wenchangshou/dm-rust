@@ -1,15 +1,16 @@
 use anyhow::Result;
-use tracing::info;
 use clap::Parser;
+use tracing::info;
 
 mod config;
-mod device;
-mod protocols;
-mod utils;
-mod web;
 mod db;
+mod device;
+mod mqtt_simulator;
+mod protocols;
 mod service;
 mod tcp_simulator;
+mod utils;
+mod web;
 
 /// 设备控制系统
 #[derive(Parser, Debug)]
@@ -73,7 +74,10 @@ async fn main() -> Result<()> {
             "stop" => return service::stop_service(),
             "restart" => return service::restart_service(),
             _ => {
-                eprintln!("错误: 无效的服务命令 '{}', 支持的命令: start, stop, restart", service_cmd);
+                eprintln!(
+                    "错误: 无效的服务命令 '{}', 支持的命令: start, stop, restart",
+                    service_cmd
+                );
                 std::process::exit(1);
             }
         }
@@ -83,7 +87,10 @@ async fn main() -> Result<()> {
     let log_level = match args.log_level.to_lowercase().as_str() {
         "trace" | "debug" | "info" | "warn" | "error" => args.log_level.clone(),
         _ => {
-            eprintln!("警告: 无效的日志级别 '{}', 使用默认值 'info'", args.log_level);
+            eprintln!(
+                "警告: 无效的日志级别 '{}', 使用默认值 'info'",
+                args.log_level
+            );
             "info".to_string()
         }
     };
@@ -97,7 +104,7 @@ async fn main() -> Result<()> {
 
     // 初始化日志系统（使用配置文件中的日志配置，命令行参数作为默认值）
     utils::logger::init_logger(cfg.log.as_ref(), &log_level)?;
-    
+
     info!("日志系统初始化完成");
 
     // 初始化设备控制器
@@ -136,7 +143,12 @@ async fn main() -> Result<()> {
 
     // 启动Web服务器（HTTP控制接口）
     let web_server = if let Some(db) = database {
-        web::WebServer::with_database(cfg.clone(), args.config.clone(), device_controller.clone(), db)
+        web::WebServer::with_database(
+            cfg.clone(),
+            args.config.clone(),
+            device_controller.clone(),
+            db,
+        )
     } else {
         web::WebServer::new(cfg.clone(), args.config.clone(), device_controller.clone())
     };

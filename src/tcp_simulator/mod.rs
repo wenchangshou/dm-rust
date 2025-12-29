@@ -49,9 +49,9 @@ pub mod protocols;
 pub mod server;
 pub mod state;
 pub mod template;
+pub mod transport;
+pub mod udp_server;
 
 pub use manager::TcpSimulatorManager;
 pub use state::{ProtocolInfo, SimulatorInfo, SimulatorStatus, TcpSimulatorConfig};
-pub use template::{
-    CreateFromTemplateRequest, CreateTemplateRequest, SimulatorTemplate, TemplateManager,
-};
+pub use template::{CreateFromTemplateRequest, SimulatorTemplate};

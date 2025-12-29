@@ -1,11 +1,11 @@
+use crate::protocols::Protocol;
+use crate::utils::{DeviceError, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use crate::protocols::Protocol;
-use crate::utils::{Result, DeviceError};
+use tokio::net::TcpStream;
 
 /// PJLink协议配置参数
 #[derive(Debug, Deserialize, Serialize)]
@@ -26,11 +26,11 @@ pub struct PjlinkProtocol {
 
 impl PjlinkProtocol {
     pub fn new(addr: String, port: u16, password: Option<String>) -> Self {
-        Self { 
+        Self {
             channel_id: 0,
-            addr, 
-            port, 
-            password 
+            addr,
+            port,
+            password,
         }
     }
 
@@ -41,16 +41,16 @@ impl PjlinkProtocol {
 
         // PJLink协议实现
         let mut buffer = [0u8; 1024];
-        let n = stream.read(&mut buffer).await?;
-        
+        let _ = stream.read(&mut buffer).await?;
+
         // 发送命令
         let command = format!("%1{} ?\r", cmd);
         stream.write_all(command.as_bytes()).await?;
-        
+
         // 读取响应
         let n = stream.read(&mut buffer).await?;
         let response = String::from_utf8_lossy(&buffer[..n]).to_string();
-        
+
         Ok(response)
     }
 }
@@ -58,7 +58,7 @@ impl PjlinkProtocol {
 #[async_trait]
 impl Protocol for PjlinkProtocol {
     /// 从配置创建PJLink协议实例
-    /// 
+    ///
     /// 期望的配置格式:
     /// ```json
     /// {
@@ -69,19 +69,23 @@ impl Protocol for PjlinkProtocol {
     /// ```
     fn from_config(channel_id: u32, params: &HashMap<String, Value>) -> Result<Box<dyn Protocol>> {
         // 从 HashMap 中提取参数
-        let addr = params.get("addr")
+        let addr = params
+            .get("addr")
             .and_then(|v| v.as_str())
             .ok_or_else(|| DeviceError::ConfigError("PJLink缺少addr参数".into()))?
             .to_string();
-        
-        let port = params.get("port")
+
+        let port = params
+            .get("port")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| DeviceError::ConfigError("PJLink缺少port参数".into()))? as u16;
-        
-        let password = params.get("password")
+            .ok_or_else(|| DeviceError::ConfigError("PJLink缺少port参数".into()))?
+            as u16;
+
+        let password = params
+            .get("password")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        
+
         Ok(Box::new(Self {
             channel_id,
             addr,
@@ -89,8 +93,8 @@ impl Protocol for PjlinkProtocol {
             password,
         }))
     }
-    
-    async fn execute(&mut self, command: &str, params: Value) -> Result<Value> {
+
+    async fn execute(&mut self, command: &str, _params: Value) -> Result<Value> {
         match command {
             "powerOn" => {
                 self.send_command("POWR 1").await?;
@@ -113,11 +117,15 @@ impl Protocol for PjlinkProtocol {
     }
 
     async fn write(&mut self, _id: u32, _value: i32) -> Result<()> {
-        Err(DeviceError::ProtocolError("PJLink不支持write操作".to_string()))
+        Err(DeviceError::ProtocolError(
+            "PJLink不支持write操作".to_string(),
+        ))
     }
 
     async fn read(&self, _id: u32) -> Result<i32> {
-        Err(DeviceError::ProtocolError("PJLink不支持read操作".to_string()))
+        Err(DeviceError::ProtocolError(
+            "PJLink不支持read操作".to_string(),
+        ))
     }
 
     fn name(&self) -> &str {

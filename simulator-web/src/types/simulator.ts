@@ -22,11 +22,13 @@ export interface SimulatorState {
 export interface SimulatorInfo {
   id: string
   name: string
+  description: string
   protocol: string
   bind_addr: string
   port: number
   status: SimulatorStatus
   state: SimulatorState
+  protocol_config?: CustomProtocolConfig
 }
 
 /** 协议信息 */
@@ -40,11 +42,14 @@ export interface ProtocolInfo {
 /** 创建模拟器请求 */
 export interface CreateSimulatorRequest {
   name: string
+  description?: string
   protocol: string
+  transport?: 'tcp' | 'udp'
   bind_addr?: string
   port: number
   initial_state?: Record<string, unknown>
   auto_start?: boolean
+  protocol_config?: CustomProtocolConfig
 }
 
 /** 更新状态请求 */
@@ -246,3 +251,47 @@ export interface SaveAsTemplateRequest {
   name: string
   description: string
 }
+
+// ============ Custom Protocol Types ============
+
+export type MatchPatternType = 'Regex' | 'Hex' | 'StringContain' | 'Any'
+
+export interface MatchPattern {
+  type: MatchPatternType
+  value?: string
+}
+
+export type ResponseActionType = 'Static' | 'Template' | 'Delay' | 'None'
+
+export interface ResponseAction {
+  type: ResponseActionType
+  value?: string | number
+}
+
+export interface ProtocolRule {
+  name: string
+  match_pattern: MatchPattern
+  action: ResponseAction
+}
+
+export enum ChecksumAlgorithm {
+  Crc16Modbus = 'Crc16Modbus',
+  Sum8 = 'Sum8',
+  XOR = 'XOR',
+}
+
+export interface ChecksumConfig {
+  algorithm: ChecksumAlgorithm
+  range_start: number
+  range_end_offset: number
+  big_endian: boolean
+}
+
+export interface CustomProtocolConfig {
+  name: string
+  description: string
+  default_port: number
+  rules: ProtocolRule[]
+  checksum?: ChecksumConfig
+}
+export interface UpdateSimulatorInfoRequest { name?: string; description?: string; }

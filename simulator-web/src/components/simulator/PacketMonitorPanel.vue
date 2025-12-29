@@ -65,7 +65,14 @@
           <span class="packet-size">{{ packet.size }} bytes</span>
         </div>
         <div class="packet-data">
-          <code>{{ formatHex(packet.hex_data) }}</code>
+          <div class="data-column hex-view">
+            <div class="column-header">HEX</div>
+            <code>{{ formatHex(packet.hex_data) }}</code>
+          </div>
+          <div class="data-column ascii-view">
+            <div class="column-header">ASCII</div>
+            <code>{{ formatAscii(packet.hex_data) }}</code>
+          </div>
         </div>
       </div>
 
@@ -105,17 +112,33 @@ const debugLoading = ref(false)
 // 格式化时间
 function formatTime(timestamp: string): string {
   const date = new Date(timestamp)
-  return date.toLocaleTimeString('zh-CN', {
+  const time = date.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    fractionalSecondDigits: 3,
   })
+  const ms = date.getMilliseconds().toString().padStart(3, '0')
+  return `${time}.${ms}`
 }
 
 // 格式化十六进制数据（每两个字符加空格）
 function formatHex(hex: string): string {
   return hex.toUpperCase().replace(/(.{2})/g, '$1 ').trim()
+}
+
+// 格式化 ASCII 数据
+function formatAscii(hex: string): string {
+  let str = ''
+  for (let i = 0; i < hex.length; i += 2) {
+    const code = parseInt(hex.substr(i, 2), 16)
+    // 只显示可见 ASCII 字符 (32-126)，其他显示点号
+    if (code >= 32 && code <= 126) {
+      str += String.fromCharCode(code)
+    } else {
+      str += '.'
+    }
+  }
+  return str
 }
 
 // 加载报文
@@ -340,10 +363,28 @@ watch(() => props.simulatorId, () => {
     }
 
     .packet-data {
-      code {
-        color: #feca57;
-        word-break: break-all;
-        line-height: 1.6;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+
+      .data-column {
+        .column-header {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.3);
+          margin-bottom: 2px;
+          user-select: none;
+        }
+
+        code {
+          color: #feca57;
+          word-break: break-all;
+          line-height: 1.6;
+          display: block;
+        }
+
+        &.ascii-view code {
+          color: #a8d6f7;
+        }
       }
     }
   }

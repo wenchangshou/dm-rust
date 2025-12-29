@@ -8,10 +8,21 @@
             <el-input v-model="customForm.name" placeholder="请输入模拟器名称" />
           </el-form-item>
 
+          <el-form-item label="描述" prop="description">
+            <el-input v-model="customForm.description" type="textarea" placeholder="请输入描述 (可选)" :rows="2" />
+          </el-form-item>
+
           <el-form-item label="协议" prop="protocol">
             <el-select v-model="customForm.protocol" placeholder="请选择协议" style="width: 100%">
               <el-option v-for="p in protocols" :key="p.name" :label="`${p.name} - ${p.description}`" :value="p.name" />
             </el-select>
+          </el-form-item>
+
+          <el-form-item label="传输协议" prop="transport">
+            <el-radio-group v-model="customForm.transport">
+              <el-radio label="tcp">TCP</el-radio>
+              <el-radio label="udp">UDP</el-radio>
+            </el-radio-group>
           </el-form-item>
 
           <el-form-item label="绑定地址" prop="bind_addr">
@@ -25,6 +36,11 @@
           <el-form-item label="自动启动">
             <el-switch v-model="customForm.auto_start" />
           </el-form-item>
+
+          <!-- 自定义协议规则编辑器 -->
+          <div v-if="customForm.protocol === 'custom' && customForm.protocol_config" class="rule-editor-container">
+            <RuleEditor v-model="customForm.protocol_config" />
+          </div>
         </el-form>
       </el-tab-pane>
 
@@ -87,6 +103,7 @@ import { useSimulatorStore } from '@/stores/simulator'
 import type { ProtocolInfo, CreateSimulatorRequest, SimulatorTemplate, CreateFromTemplateRequest } from '@/types/simulator'
 import * as simulatorApi from '@/api/simulator'
 import TemplateManagerDialog from './TemplateManagerDialog.vue'
+import RuleEditor from './RuleEditor.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -109,18 +126,44 @@ const templates = ref<SimulatorTemplate[]>([])
 // 自定义创建表单
 const customForm = reactive<CreateSimulatorRequest>({
   name: '',
+  description: '',
   protocol: '',
+  transport: 'tcp',
   bind_addr: '0.0.0.0',
   port: 5000,
   auto_start: true,
+  protocol_config: undefined
 })
 
 const customRules: FormRules = {
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   protocol: [{ required: true, message: '请选择协议', trigger: 'change' }],
+  transport: [{ required: true, message: '请选择传输协议', trigger: 'change' }],
   port: [{ required: true, message: '请输入端口', trigger: 'blur' }],
 }
 
+// ... existing code ...
+
+// 监听协议变化，自动设置默认端口和初始化配置
+watch(() => customForm.protocol, (protocol) => {
+  const p = props.protocols.find(p => p.name === protocol)
+  if (p) {
+    customForm.port = p.default_port
+  }
+
+  if (protocol === 'custom') {
+    if (!customForm.protocol_config) {
+      customForm.protocol_config = {
+        name: 'MyProtocol',
+        description: 'Custom Protocol',
+        default_port: 5000,
+        rules: []
+      }
+    }
+  } else {
+    customForm.protocol_config = undefined
+  }
+})
 // 模板创建表单
 const templateForm = reactive<CreateFromTemplateRequest>({
   template_id: '',

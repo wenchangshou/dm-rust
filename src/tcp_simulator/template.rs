@@ -10,7 +10,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 /// 模拟器模板
@@ -25,6 +25,9 @@ pub struct SimulatorTemplate {
     pub description: String,
     /// 协议类型
     pub protocol: String,
+    /// 传输协议
+    #[serde(default = "default_transport")]
+    pub transport: String,
     /// 协议配置 (如 Modbus 寄存器配置)
     #[serde(default)]
     pub config: Value,
@@ -37,12 +40,17 @@ pub struct SimulatorTemplate {
     pub updated_at: DateTime<Utc>,
 }
 
+fn default_transport() -> String {
+    "tcp".to_string()
+}
+
 impl SimulatorTemplate {
     /// 创建新模板
     pub fn new(
         name: String,
         description: String,
         protocol: String,
+        transport: String,
         config: Value,
         values: Value,
     ) -> Self {
@@ -52,6 +60,7 @@ impl SimulatorTemplate {
             name,
             description,
             protocol,
+            transport,
             config,
             values,
             created_at: now,
@@ -70,6 +79,9 @@ pub struct CreateTemplateRequest {
     pub description: String,
     /// 协议类型
     pub protocol: String,
+    /// 传输协议
+    #[serde(default = "default_transport")]
+    pub transport: String,
     /// 协议配置
     #[serde(default)]
     pub config: Value,
@@ -94,6 +106,17 @@ pub struct CreateFromTemplateRequest {
 
 fn default_bind_addr() -> String {
     "0.0.0.0".to_string()
+}
+
+/// 更新模板请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateTemplateRequest {
+    /// 模板名称
+    pub name: Option<String>,
+    /// 模板描述
+    pub description: Option<String>,
+    /// 协议配置
+    pub config: Option<Value>,
 }
 
 /// 模板管理器
@@ -167,6 +190,7 @@ impl TemplateManager {
             req.name,
             req.description,
             req.protocol,
+            req.transport,
             req.config,
             req.values,
         );
@@ -178,6 +202,40 @@ impl TemplateManager {
         self.save_to_file().await?;
         info!("创建模板: {} ({})", template.name, template.id);
         Ok(template)
+    }
+
+    /// 更新模板
+    pub async fn update(
+        &self,
+        id: &str,
+        req: UpdateTemplateRequest,
+    ) -> Result<SimulatorTemplate, String> {
+        let mut store = self.templates.write().await;
+
+        let template = store
+            .get_mut(id)
+            .ok_or_else(|| format!("模板 '{}' 不存在", id))?;
+
+        if let Some(name) = req.name {
+            template.name = name;
+        }
+
+        if let Some(description) = req.description {
+            template.description = description;
+        }
+
+        if let Some(config) = req.config {
+            template.config = config;
+        }
+
+        template.updated_at = Utc::now();
+        let updated_template = template.clone();
+
+        drop(store);
+
+        self.save_to_file().await?;
+        info!("更新模板: {} ({})", updated_template.name, id);
+        Ok(updated_template)
     }
 
     /// 删除模板

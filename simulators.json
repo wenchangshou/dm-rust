@@ -4,11 +4,14 @@
     {
       "config": {
         "id": "sim_ed97d3da",
-        "name": "test",
+        "name": "test123",
+        "description": "12332",
         "protocol": "modbus",
+        "transport": "tcp",
         "bind_addr": "0.0.0.0",
         "port": 1502,
-        "initial_state": null
+        "initial_state": null,
+        "protocol_config": null
       },
       "values": {
         "slaves": [
@@ -23,10 +26,10 @@
                   "min": 0.0,
                   "mode": "random"
                 },
-                "lastUpdate": 1766989469436,
+                "lastUpdate": 1767011597611,
                 "readonly": false,
                 "type": "holding_register",
-                "value": 4884
+                "value": 2631
               },
               {
                 "address": 0,
@@ -38,10 +41,10 @@
                   "mode": "sine",
                   "period": 1000
                 },
-                "lastUpdate": 1766989469436,
+                "lastUpdate": 1767011597611,
                 "readonly": false,
                 "type": "holding_register",
-                "value": 6957
+                "value": 1789
               },
               {
                 "address": 0,
@@ -52,7 +55,7 @@
                   "min": 0.0,
                   "mode": "random"
                 },
-                "lastUpdate": 1766989469436,
+                "lastUpdate": 1767011597611,
                 "readonly": false,
                 "type": "coil",
                 "value": false
@@ -66,6 +69,122 @@
           }
         ]
       },
+      "auto_start": true
+    },
+    {
+      "config": {
+        "id": "sim_88ca6fec",
+        "name": "v1_1",
+        "description": "",
+        "protocol": "modbus",
+        "transport": "tcp",
+        "bind_addr": "0.0.0.0",
+        "port": 11502,
+        "initial_state": {
+          "defaultSlaveId": 1,
+          "slaves": [
+            {
+              "registers": [
+                {
+                  "address": 0,
+                  "dataType": "uint16",
+                  "generator": {
+                    "interval": 1000,
+                    "max": 1,
+                    "min": 0,
+                    "mode": "random"
+                  },
+                  "name": "开关",
+                  "readonly": false,
+                  "type": "holding_register",
+                  "value": 0
+                }
+              ],
+              "slaveId": 1
+            }
+          ]
+        },
+        "protocol_config": {
+          "defaultSlaveId": 1,
+          "slaves": [
+            {
+              "registers": [
+                {
+                  "address": 0,
+                  "dataType": "uint16",
+                  "generator": {
+                    "interval": 1000,
+                    "max": 1,
+                    "min": 0,
+                    "mode": "random"
+                  },
+                  "name": "开关",
+                  "readonly": false,
+                  "type": "holding_register",
+                  "value": 0
+                }
+              ],
+              "slaveId": 1
+            }
+          ]
+        }
+      },
+      "values": {
+        "defaultSlaveId": 1,
+        "slaves": [
+          {
+            "registers": [
+              {
+                "address": 0,
+                "dataType": "uint16",
+                "generator": {
+                  "interval": 1000,
+                  "max": 1,
+                  "min": 0,
+                  "mode": "random"
+                },
+                "name": "开关",
+                "readonly": false,
+                "type": "holding_register",
+                "value": 0
+              }
+            ],
+            "slaveId": 1
+          }
+        ]
+      },
+      "auto_start": true
+    },
+    {
+      "config": {
+        "id": "sim_c8e6499f",
+        "name": "test",
+        "description": "",
+        "protocol": "custom",
+        "transport": "tcp",
+        "bind_addr": "0.0.0.0",
+        "port": 65535,
+        "initial_state": null,
+        "protocol_config": {
+          "default_port": 5000,
+          "description": "Custom Protocol",
+          "name": "MyProtocol",
+          "rules": [
+            {
+              "action": {
+                "type": "StaticString",
+                "value": "123"
+              },
+              "match_pattern": {
+                "type": "StringContain",
+                "value": "123"
+              },
+              "name": "Rule 1"
+            }
+          ]
+        }
+      },
+      "values": {},
       "auto_start": true
     }
   ]

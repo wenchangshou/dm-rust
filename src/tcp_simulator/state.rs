@@ -16,8 +16,14 @@ pub struct TcpSimulatorConfig {
     pub id: String,
     /// 显示名称
     pub name: String,
+    /// 描述
+    #[serde(default)]
+    pub description: String,
     /// 协议类型
     pub protocol: String,
+    /// 传输协议 (tcp, udp)
+    #[serde(default = "default_transport")]
+    pub transport: String,
     /// 绑定地址
     #[serde(default = "default_bind_addr")]
     pub bind_addr: String,
@@ -26,6 +32,13 @@ pub struct TcpSimulatorConfig {
     /// 协议特定的初始状态
     #[serde(default)]
     pub initial_state: Value,
+    /// 协议配置 (如自定义协议规则)
+    #[serde(default)]
+    pub protocol_config: Option<Value>,
+}
+
+fn default_transport() -> String {
+    "tcp".to_string()
 }
 
 fn default_bind_addr() -> String {
@@ -475,11 +488,15 @@ impl SimulatorState {
 pub struct SimulatorInfo {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub protocol: String,
+    pub transport: String,
     pub bind_addr: String,
     pub port: u16,
     pub status: SimulatorStatus,
     pub state: SimulatorState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol_config: Option<Value>,
 }
 
 impl SimulatorInfo {
@@ -491,11 +508,14 @@ impl SimulatorInfo {
         Self {
             id: config.id.clone(),
             name: config.name.clone(),
+            description: config.description.clone(),
             protocol: config.protocol.clone(),
+            transport: config.transport.clone(),
             bind_addr: config.bind_addr.clone(),
             port: config.port,
             status,
             state,
+            protocol_config: config.protocol_config.clone(),
         }
     }
 }

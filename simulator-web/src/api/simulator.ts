@@ -14,6 +14,7 @@ import type {
   DeleteModbusRegisterRequest,
   GetPacketsResponse,
   PacketMonitorSettingsRequest,
+  UpdateSimulatorInfoRequest,
 } from '@/types/simulator'
 
 /** 获取支持的协议列表 */
@@ -78,6 +79,18 @@ export async function clearFault(id: string): Promise<SimulatorInfo> {
 /** 设置在线状态 */
 export async function setOnline(id: string, online: boolean): Promise<SimulatorInfo> {
   const response = await api.post<ApiResponse<SimulatorInfo>>(`/${id}/online`, { online })
+  return response.data.data!
+}
+
+/** 更新模拟器配置 */
+export async function updateSimulatorConfig(id: string, protocolConfig: any): Promise<SimulatorInfo> {
+  const response = await api.post<ApiResponse<SimulatorInfo>>(`/${id}/config`, { protocol_config: protocolConfig })
+  return response.data.data!
+}
+
+/** 更新模拟器基本信息 */
+export async function updateSimulatorInfo(id: string, data: UpdateSimulatorInfoRequest): Promise<SimulatorInfo> {
+  const response = await api.post<ApiResponse<SimulatorInfo>>(`/${id}/info`, data)
   return response.data.data!
 }
 
@@ -207,7 +220,19 @@ export async function deleteTemplate(id: string): Promise<void> {
   await api.delete(`/templates/${id}`)
 }
 
-/** 从模板创建模拟器 */
+/** 更新模板 */
+export async function updateTemplate(id: string, data: { name?: string; description?: string; config?: any }): Promise<SimulatorTemplate> {
+  const response = await api.put<ApiResponse<SimulatorTemplate>>(`/templates/${id}`, data)
+  return response.data.data!
+}
+
+/** 创建模板 */
+export async function createTemplate(data: { name: string; description?: string; protocol: string; transport: string; config?: any }): Promise<SimulatorTemplate> {
+  const response = await api.post<ApiResponse<SimulatorTemplate>>('/templates', data)
+  return response.data.data!
+}
+
+/** 基于模板创建模拟器 */
 export async function createFromTemplate(data: CreateFromTemplateRequest): Promise<SimulatorInfo> {
   const response = await api.post<ApiResponse<SimulatorInfo>>('/create-from-template', data)
   return response.data.data!

@@ -9,17 +9,19 @@ use uuid::Uuid;
 
 use super::persistence::{PersistedSimulator, PersistenceManager};
 use super::protocols::{ModbusValues, ProtocolRegistry};
-use super::server::{ServerConfig, TcpSimulatorServer};
+use super::server::{ServerConfig, TcpServer};
 use super::state::PacketRecord;
 use super::state::{
     ProtocolInfo, SimulatorInfo, SimulatorState, SimulatorStatus, TcpSimulatorConfig,
 };
 use super::template::{CreateFromTemplateRequest, SimulatorTemplate, TemplateManager};
+use super::transport::SimulatorServer;
+use super::udp_server::UdpServer;
 
 /// 模拟器实例
 struct SimulatorInstance {
-    config: TcpSimulatorConfig,
-    server: RwLock<TcpSimulatorServer>,
+    config: RwLock<TcpSimulatorConfig>,
+    server: RwLock<Box<dyn SimulatorServer>>,
 }
 
 /// TCP 模拟器管理器
@@ -105,7 +107,7 @@ impl TcpSimulatorManager {
             .await
             .ok_or_else(|| format!("模板 '{}' 不存在", req.template_id))?;
 
-        let mut initial_state = serde_json::from_value::<
+        let initial_state = serde_json::from_value::<
             std::collections::HashMap<String, serde_json::Value>,
         >(template.values.clone())
         .unwrap_or_default();
@@ -113,10 +115,13 @@ impl TcpSimulatorManager {
         let config = TcpSimulatorConfig {
             id: String::new(), // new_id 会在 create_internal 中生成
             name: req.name,
+            description: template.description.clone(),
             protocol: template.protocol,
+            transport: template.transport, // Default from template usually means protocol default, assume tcp for now
             bind_addr: req.bind_addr,
             port: req.port,
-            initial_state: template.config,
+            initial_state: template.config.clone(),
+            protocol_config: Some(template.config),
         };
 
         let simulator_info = self.create_internal(config, initial_state).await?;
@@ -126,6 +131,13 @@ impl TcpSimulatorManager {
     }
 
     /// 导出为模板
+    pub async fn create_template(
+        &self,
+        req: crate::tcp_simulator::template::CreateTemplateRequest,
+    ) -> Result<crate::tcp_simulator::template::SimulatorTemplate, String> {
+        self.template_manager.create(req).await
+    }
+
     pub async fn save_as_template(
         &self,
         simulator_id: &str,
@@ -139,12 +151,14 @@ impl TcpSimulatorManager {
 
         let server = instance.server.read().await;
         let state = server.get_state().await;
+        let config = instance.config.read().await;
 
         let request = super::template::CreateTemplateRequest {
             name: template_name,
             description,
-            protocol: instance.config.protocol.clone(),
-            config: instance.config.initial_state.clone(), // 这里的配置应该用当前的配置？不，initial_state 包含了协议配置
+            transport: config.transport.clone(),
+            protocol: config.protocol.clone(),
+            config: config.initial_state.clone(), // 这里的配置应该用当前的配置？不，initial_state 包含了协议配置
             values: serde_json::to_value(state.values).unwrap_or_default(),
         };
 
@@ -156,9 +170,10 @@ impl TcpSimulatorManager {
         if let Some(instance) = self.simulators.get(id) {
             let server = instance.server.read().await;
             let state = server.get_state().await;
+            let config = instance.config.read().await;
 
             let persisted = PersistedSimulator {
-                config: instance.config.clone(),
+                config: config.clone(),
                 values: state.values.clone(),
                 auto_start,
             };
@@ -203,23 +218,26 @@ impl TcpSimulatorManager {
         // 检查端口是否被占用
         for entry in self.simulators.iter() {
             let instance = entry.value();
-            if instance.config.port == config.port && instance.config.bind_addr == config.bind_addr
-            {
+            let inst_config = instance.config.read().await;
+            if inst_config.port == config.port && inst_config.bind_addr == config.bind_addr {
                 return Err(format!(
                     "Port {} is already in use by simulator '{}'",
-                    config.port, instance.config.id
+                    config.port, inst_config.id
                 ));
             }
         }
 
         // 检查协议是否存在
-        let handler = self.registry.create(&config.protocol).ok_or_else(|| {
-            format!(
-                "Unknown protocol: '{}'. Available: {:?}",
-                config.protocol,
-                self.registry.list_protocols()
-            )
-        })?;
+        let handler = self
+            .registry
+            .create(&config.protocol, config.protocol_config.clone())
+            .ok_or_else(|| {
+                format!(
+                    "Unknown protocol: '{}'. Available: {:?}",
+                    config.protocol,
+                    self.registry.list_protocols()
+                )
+            })?;
 
         // 创建服务器配置
         let server_config = ServerConfig {
@@ -236,11 +254,23 @@ impl TcpSimulatorManager {
         }
 
         // 创建服务器
-        let server = TcpSimulatorServer::new(server_config, handler, initial_state.clone());
+        let server: Box<dyn SimulatorServer> = if config.transport == "udp" {
+            Box::new(UdpServer::new(
+                server_config,
+                handler,
+                initial_state.clone(),
+            ))
+        } else {
+            Box::new(TcpServer::new(
+                server_config,
+                handler,
+                initial_state.clone(),
+            ))
+        };
 
         // 保存实例
         let instance = Arc::new(SimulatorInstance {
-            config: config.clone(),
+            config: RwLock::new(config.clone()),
             server: RwLock::new(server),
         });
 
@@ -323,10 +353,12 @@ impl TcpSimulatorManager {
     /// 获取模拟器信息
     pub async fn get(&self, id: &str) -> Option<SimulatorInfo> {
         let instance = self.simulators.get(id)?;
+        // 获取当前状态用于返回
         let server = instance.server.read().await;
         let status = server.get_status().await;
         let state = server.get_state().await;
-        Some(SimulatorInfo::new(&instance.config, status, state))
+        let config = instance.config.read().await;
+        Some(SimulatorInfo::new(&config, status, state))
     }
 
     /// 列出所有模拟器
@@ -338,7 +370,8 @@ impl TcpSimulatorManager {
             let server = instance.server.read().await;
             let status = server.get_status().await;
             let state = server.get_state().await;
-            result.push(SimulatorInfo::new(&instance.config, status, state));
+            let config = instance.config.read().await;
+            result.push(SimulatorInfo::new(&config, status, state));
         }
 
         result
@@ -357,25 +390,26 @@ impl TcpSimulatorManager {
             .ok_or_else(|| format!("Simulator '{}' not found", id))?;
 
         let server = instance.server.read().await;
+        let state_arc = server.get_state_ref();
 
-        server
-            .update_state(|state| {
-                if let Some(online) = online {
-                    state.online = online;
+        {
+            let mut state = state_arc.write().await;
+            if let Some(online) = online {
+                state.online = online;
+            }
+            if let Some(fault) = fault {
+                if fault.is_empty() {
+                    state.clear_fault();
+                } else {
+                    state.set_fault(&fault);
                 }
-                if let Some(fault) = fault {
-                    if fault.is_empty() {
-                        state.clear_fault();
-                    } else {
-                        state.set_fault(&fault);
-                    }
-                }
-            })
-            .await;
+            }
+        }
 
         let status = server.get_status().await;
         let state = server.get_state().await;
-        Ok(SimulatorInfo::new(&instance.config, status, state))
+        let config = instance.config.read().await;
+        Ok(SimulatorInfo::new(&config, status, state))
     }
 
     /// 触发故障
@@ -394,6 +428,83 @@ impl TcpSimulatorManager {
         self.update_state(id, Some(online), None).await
     }
 
+    /// 更新模拟器配置
+    pub async fn update_config(
+        &self,
+        id: &str,
+        protocol_config: Option<serde_json::Value>,
+    ) -> Result<SimulatorInfo, String> {
+        let instance = self
+            .simulators
+            .get(id) // use get instead of get_mut
+            .ok_or_else(|| format!("Simulator '{}' not found", id))?;
+
+        // 更新配置
+        // 注意：这里只更新配置，不会立即应用到运行中的服务器
+        // 用户需要重启模拟器才能生效
+        if let Some(config) = protocol_config {
+            let mut inst_config = instance.config.write().await;
+            inst_config.protocol_config = Some(config);
+        }
+
+        // 获取当前状态用于返回 - Config used implicitly via drop for locking scope
+        let server = instance.server.read().await;
+        let config = instance.config.read().await;
+
+        // 释放锁以便持久化
+        drop(config);
+        drop(server);
+        drop(instance);
+
+        // 持久化保存
+        self.persist_simulator(id, true).await;
+
+        // 重新获取并返回
+        self.get(id)
+            .await
+            .ok_or_else(|| "Simulator lost after update".to_string())
+    }
+
+    /// 更新模拟器基本信息（名称和描述）
+    pub async fn update_info(
+        &self,
+        id: &str,
+        name: Option<String>,
+        description: Option<String>,
+    ) -> Result<SimulatorInfo, String> {
+        let instance = self
+            .simulators
+            .get(id)
+            .ok_or_else(|| format!("Simulator '{}' not found", id))?;
+
+        {
+            let mut inst_config = instance.config.write().await;
+            if let Some(n) = name {
+                inst_config.name = n;
+            }
+            if let Some(d) = description {
+                inst_config.description = d;
+            }
+        }
+
+        // 获取当前状态用于返回 - Config used implicitly via drop for locking scope
+        let server = instance.server.read().await;
+        let config = instance.config.read().await;
+
+        // 释放锁以便持久化
+        drop(config);
+        drop(server);
+        drop(instance);
+
+        // 持久化保存
+        self.persist_simulator(id, true).await;
+
+        // 重新获取并返回
+        self.get(id)
+            .await
+            .ok_or_else(|| "Simulator lost after update".to_string())
+    }
+
     /// 更新 Modbus 状态
     ///
     /// 通用方法，允许传入闭包来修改 ModbusValues
@@ -409,20 +520,18 @@ impl TcpSimulatorManager {
                 .ok_or_else(|| format!("Simulator '{}' not found", id))?;
 
             let server = instance.server.read().await;
+            let state_arc = server.get_state_ref();
+            let mut state = state_arc.write().await;
 
-            // 获取当前状态并更新
-            let mut update_result = Ok(());
-            server
-                .update_state(|state| {
-                    let mut values = ModbusValues::from_state(state);
-                    update_result = f(&mut values);
-                    if update_result.is_ok() {
-                        values.save_to_state(state);
-                    }
-                })
-                .await;
+            let mut values = ModbusValues::from_state(&state); // Changed from state because we need ref
+                                                               // Oh wait, ModbusValues::from_state takes &SimulatorState.
+                                                               // And save_to_state takes &mut SimulatorState.
 
-            update_result?;
+            let result = f(&mut values);
+            if result.is_ok() {
+                values.save_to_state(&mut state);
+            }
+            result?; // Return error if f failed
         }
 
         // 持久化保存状态变更
@@ -470,11 +579,9 @@ impl TcpSimulatorManager {
             .ok_or_else(|| format!("Simulator '{}' not found", id))?;
 
         let server = instance.server.read().await;
-        server
-            .update_state(|state| {
-                state.packet_monitor.clear();
-            })
-            .await;
+        let state_arc = server.get_state_ref();
+        let mut state = state_arc.write().await;
+        state.packet_monitor.clear();
 
         Ok(())
     }
@@ -491,15 +598,16 @@ impl TcpSimulatorManager {
             .ok_or_else(|| format!("Simulator '{}' not found", id))?;
 
         let server = instance.server.read().await;
-        server
-            .update_state(|state| {
-                state.packet_monitor.set_enabled(enabled);
-            })
-            .await;
+        {
+            let state_arc = server.get_state_ref();
+            let mut state = state_arc.write().await;
+            state.packet_monitor.set_enabled(enabled);
+        }
 
         let status = server.get_status().await;
         let state = server.get_state().await;
-        Ok(SimulatorInfo::new(&instance.config, status, state))
+        let config = instance.config.read().await;
+        Ok(SimulatorInfo::new(&config, status, state))
     }
 
     /// 设置最大报文记录数
@@ -514,15 +622,16 @@ impl TcpSimulatorManager {
             .ok_or_else(|| format!("Simulator '{}' not found", id))?;
 
         let server = instance.server.read().await;
-        server
-            .update_state(|state| {
-                state.packet_monitor.set_max_packets(max);
-            })
-            .await;
+        {
+            let state_arc = server.get_state_ref();
+            let mut state = state_arc.write().await;
+            state.packet_monitor.set_max_packets(max);
+        }
 
         let status = server.get_status().await;
         let state = server.get_state().await;
-        Ok(SimulatorInfo::new(&instance.config, status, state))
+        let config = instance.config.read().await;
+        Ok(SimulatorInfo::new(&config, status, state))
     }
 
     // ============ 客户端连接管理 ============
@@ -541,15 +650,16 @@ impl TcpSimulatorManager {
 
         // 检查客户端是否存在并移除
         let mut found = false;
-        server
-            .update_state(|state| {
-                if state.clients.contains_key(client_id) {
-                    state.clients.remove(client_id);
-                    state.stats.record_disconnection();
-                    found = true;
-                }
-            })
-            .await;
+
+        {
+            let state_arc = server.get_state_ref();
+            let mut state = state_arc.write().await;
+            if state.clients.contains_key(client_id) {
+                state.clients.remove(client_id);
+                state.stats.record_disconnection();
+                found = true;
+            }
+        }
 
         if found {
             info!("客户端 {} 已从模拟器 {} 断开", client_id, id);
@@ -570,14 +680,16 @@ impl TcpSimulatorManager {
 
         let server = instance.server.read().await;
         let simulator_id = id.to_string();
-        server
-            .update_state(|state| {
-                state.packet_monitor.set_debug_mode(enabled, &simulator_id);
-            })
-            .await;
+
+        {
+            let state_arc = server.get_state_ref();
+            let mut state = state_arc.write().await;
+            state.packet_monitor.set_debug_mode(enabled, &simulator_id);
+        }
 
         let status = server.get_status().await;
         let state = server.get_state().await;
+        let config = instance.config.read().await;
 
         if enabled {
             if let Some(path) = state.packet_monitor.get_debug_log_path() {
@@ -587,7 +699,7 @@ impl TcpSimulatorManager {
             info!("模拟器 {} Debug 模式已关闭", id);
         }
 
-        Ok(SimulatorInfo::new(&instance.config, status, state))
+        Ok(SimulatorInfo::new(&config, status, state))
     }
 
     /// 获取 Debug 日志内容
@@ -652,10 +764,13 @@ mod tests {
         let config = TcpSimulatorConfig {
             id: String::new(),
             name: "Test".to_string(),
+            description: "Test Description".to_string(),
             protocol: "scene_loader".to_string(),
+            transport: "tcp".to_string(),
             bind_addr: "127.0.0.1".to_string(),
             port: 15000,
             initial_state: serde_json::json!({}),
+            protocol_config: None,
         };
 
         let result = manager.create(config).await;
@@ -673,10 +788,13 @@ mod tests {
         let config = TcpSimulatorConfig {
             id: String::new(),
             name: "Test".to_string(),
+            description: "Test Description".to_string(),
             protocol: "unknown".to_string(),
+            transport: "tcp".to_string(),
             bind_addr: "127.0.0.1".to_string(),
             port: 15001,
             initial_state: serde_json::json!({}),
+            protocol_config: None,
         };
 
         let result = manager.create(config).await;

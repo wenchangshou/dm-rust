@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio_serial::{SerialPortBuilderExt, SerialStream};
+use tokio_serial::SerialPortBuilderExt;
 use tracing::{debug, info, warn};
 
 use crate::protocols::Protocol;

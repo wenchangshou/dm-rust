@@ -1,13 +1,12 @@
 /// 模拟器持久化存储
 ///
 /// 将模拟器配置和状态保存到 JSON 文件，支持启动时自动加载。
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 use super::state::TcpSimulatorConfig;
 
@@ -78,21 +77,18 @@ impl PersistenceManager {
             .await
             .map_err(|e| format!("读取持久化文件失败: {}", e))?;
 
-        let data: PersistedData = serde_json::from_str(&content)
-            .map_err(|e| format!("解析持久化文件失败: {}", e))?;
+        let data: PersistedData =
+            serde_json::from_str(&content).map_err(|e| format!("解析持久化文件失败: {}", e))?;
 
-        info!(
-            "已加载 {} 个模拟器配置",
-            data.simulators.len()
-        );
+        info!("已加载 {} 个模拟器配置", data.simulators.len());
 
         Ok(data)
     }
 
     /// 保存持久化数据
     pub async fn save(&self, data: &PersistedData) -> Result<(), String> {
-        let content = serde_json::to_string_pretty(data)
-            .map_err(|e| format!("序列化失败: {}", e))?;
+        let content =
+            serde_json::to_string_pretty(data).map_err(|e| format!("序列化失败: {}", e))?;
 
         // 确保目录存在
         if let Some(parent) = self.file_path.parent() {
@@ -107,7 +103,11 @@ impl PersistenceManager {
             .await
             .map_err(|e| format!("写入持久化文件失败: {}", e))?;
 
-        debug!("已保存 {} 个模拟器配置到 {:?}", data.simulators.len(), self.file_path);
+        debug!(
+            "已保存 {} 个模拟器配置到 {:?}",
+            data.simulators.len(),
+            self.file_path
+        );
 
         Ok(())
     }
@@ -117,7 +117,11 @@ impl PersistenceManager {
         let mut data = self.load().await.unwrap_or_default();
 
         // 查找并更新，或添加新的
-        if let Some(existing) = data.simulators.iter_mut().find(|s| s.config.id == simulator.config.id) {
+        if let Some(existing) = data
+            .simulators
+            .iter_mut()
+            .find(|s| s.config.id == simulator.config.id)
+        {
             *existing = simulator;
         } else {
             data.simulators.push(simulator);
@@ -140,7 +144,11 @@ impl PersistenceManager {
     }
 
     /// 更新模拟器的 values
-    pub async fn update_values(&self, id: &str, values: HashMap<String, Value>) -> Result<(), String> {
+    pub async fn update_values(
+        &self,
+        id: &str,
+        values: HashMap<String, Value>,
+    ) -> Result<(), String> {
         let mut data = self.load().await.unwrap_or_default();
 
         if let Some(simulator) = data.simulators.iter_mut().find(|s| s.config.id == id) {
