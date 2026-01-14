@@ -1,0 +1,60 @@
+{
+    "channels": [
+        {
+            "channel_id": 1,
+            "enable": true,
+            "statute": "splicer3d",
+            "arguments": {
+                "use_tcp": true,
+                "addr": "192.168.1.100",
+                "port": 5000,
+                "group": 1
+            }
+        }
+    ],
+    "nodes": [
+        {
+            "global_id": 1,
+            "channel_id": 1,
+            "id": 1,
+            "alias": "场景控制"
+        }
+    ],
+    "scenes": [
+        {
+            "name": "场景1",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 1
+                }
+            ]
+        },
+        {
+            "name": "场景2",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 2
+                }
+            ]
+        },
+        {
+            "name": "场景3",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 3
+                }
+            ]
+        }
+    ],
+    "task_settings": {
+        "timeout_ms": 5000,
+        "check_interval_ms": 500,
+        "max_retries": 3
+    },
+    "web_server": {
+        "port": 8080
+    }
+}

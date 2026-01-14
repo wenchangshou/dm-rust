@@ -116,9 +116,15 @@ pub struct TaskSettings {
     pub max_retries: u32,
 }
 
-fn default_task_timeout() -> u64 { 5000 }
-fn default_check_interval() -> u64 { 500 }
-fn default_max_retries() -> u32 { 3 }
+fn default_task_timeout() -> u64 {
+    5000
+}
+fn default_check_interval() -> u64 {
+    500
+}
+fn default_max_retries() -> u32 {
+    3
+}
 
 impl Default for TaskSettings {
     fn default() -> Self {
@@ -227,6 +233,8 @@ pub enum StatuteType {
     #[serde(rename = "hs-power-sequencer")]
     HsPowerSequencer,
     Novastar,
+    #[serde(rename = "qn-smart-plc")]
+    QnSmartPlc,
     Mock,
     #[serde(rename = "BFHD1")]
     BFHD1,
@@ -235,6 +243,10 @@ pub enum StatuteType {
     Vivitek,
     #[serde(rename = "hikvisionLed")]
     HikvisionLed,
+    #[serde(rename = "splicer3d")]
+    Splicer3d,
+    #[serde(rename = "yk-vap")]
+    YkVap,
 }
 
 /// 节点配置
@@ -298,7 +310,7 @@ pub struct SceneNode {
     pub id: u32,
     pub value: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delay: Option<u32>,  // 延迟毫秒数
+    pub delay: Option<u32>, // 延迟毫秒数
 }
 
 /// 加载配置文件
@@ -319,13 +331,12 @@ pub fn load_config_from_file(path: &str) -> anyhow::Result<Config> {
     }
 
     // 读取文件内容
-    let content = fs::read_to_string(path)
-        .map_err(|e| anyhow::anyhow!("读取配置文件失败: {}", e))?;
+    let content =
+        fs::read_to_string(path).map_err(|e| anyhow::anyhow!("读取配置文件失败: {}", e))?;
 
     // 根据文件扩展名选择反序列化方式
     let config: Config = if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-        toml::from_str(&content)
-            .map_err(|e| anyhow::anyhow!("解析TOML配置文件失败: {}", e))?
+        toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析TOML配置文件失败: {}", e))?
     } else {
         serde_json::from_str(&content)
             .map_err(|e| anyhow::anyhow!("解析JSON配置文件失败: {}", e))?

@@ -1,0 +1,403 @@
+{
+    "channels": [
+        {
+            "_comment": "Computer Control Protocol - Manage multiple computers via WOL and UDP Shutdown",
+            "channel_id": 1,
+            "enable": true,
+            "statute": "computerControl",
+            "arguments": {
+                "mac_address": [
+                    {
+                        "id": 101,
+                        "mac": "00:11:22:33:44:55",
+                        "ip": "192.168.11.101",
+                        "port": 8888
+                    },
+                    {
+                        "id": 102,
+                        "mac": "AA:BB:CC:DD:EE:FF",
+                        "ip": "192.168.11.102",
+                        "port": 8888
+                    }
+                ],
+                "broadcast_addr": "192.168.11.255",
+                "wol_port": 9,
+                "shutdown_port": 9
+            }
+        },
+        {
+            "_comment": "南京龙港PLC屏幕控制协议",
+            "channel_id": 2,
+            "enable": true,
+            "statute": "qn-smart-plc",
+            "addr": "192.168.11.19",
+            "port": 20502,
+            "slave_id": 50,
+            "timeout": 3000
+        },
+        {
+            "_comment": "3D拼接处理器 - 场景切换控制",
+            "channel_id": 3,
+            "enable": true,
+            "statute": "splicer3d",
+            "arguments": {
+                "use_udp": true,
+                "addr": "192.168.11.19",
+                "port": 1111,
+                "group": 1
+            }
+        },
+        {
+            "_comment": "YK-VAP拼接处理器场景控制",
+            "channel_id": 4,
+            "enable": true,
+            "statute": "yk-vap",
+            "arguments": {
+                "type": "tcp",
+                "addr": "192.168.11.20",
+                "port": 5000,
+                "timeout": 3000
+            }
+        },
+        {
+            "_comment": "模拟调试通道",
+            "channel_id": 5,
+            "enable": true,
+            "statute": "mock",
+            "arguments": {
+                "initial_values": {
+                    "1": 1,
+                    "2": 1
+                }
+            }
+        }
+    ],
+    "nodes": [
+        {
+            "global_id": 1,
+            "channel_id": 1,
+            "id": 101,
+            "category": "pc",
+            "alias": "Control PC 1"
+        },
+        {
+            "global_id": 2,
+            "channel_id": 1,
+            "id": 102,
+            "category": "pc",
+            "alias": "Media Server"
+        },
+        {
+            "global_id": 3,
+            "channel_id": 2,
+            "id": 1,
+            "category": "screen",
+            "alias": "屏幕1"
+        },
+        {
+            "global_id": 4,
+            "channel_id": 2,
+            "id": 2,
+            "category": "screen",
+            "alias": "屏幕2"
+        },
+        {
+            "global_id": 5,
+            "channel_id": 2,
+            "id": 3,
+            "category": "screen",
+            "alias": "屏幕3"
+        },
+        {
+            "global_id": 6,
+            "channel_id": 2,
+            "id": 4,
+            "category": "screen",
+            "alias": "屏幕4"
+        },
+        {
+            "global_id": 7,
+            "channel_id": 2,
+            "id": 5,
+            "category": "screen",
+            "alias": "屏幕5"
+        },
+        {
+            "global_id": 8,
+            "channel_id": 2,
+            "id": 6,
+            "category": "screen",
+            "alias": "屏幕6"
+        },
+        {
+            "global_id": 9,
+            "channel_id": 2,
+            "id": 7,
+            "category": "screen",
+            "alias": "屏幕7"
+        },
+        {
+            "global_id": 10,
+            "channel_id": 2,
+            "id": 8,
+            "category": "screen",
+            "alias": "屏幕8"
+        },
+        {
+            "global_id": 11,
+            "channel_id": 2,
+            "id": 9,
+            "category": "screen",
+            "alias": "屏幕9"
+        },
+        {
+            "global_id": 12,
+            "channel_id": 2,
+            "id": 10,
+            "category": "screen",
+            "alias": "屏幕10"
+        },
+        {
+            "global_id": 13,
+            "channel_id": 3,
+            "id": 1,
+            "category": "splicer",
+            "alias": "3D拼接场景控制"
+        },
+        {
+            "global_id": 14,
+            "channel_id": 4,
+            "id": 1,
+            "category": "splicer",
+            "alias": "YK-VAP场景控制"
+        },
+        {
+            "global_id": 15,
+            "channel_id": 5,
+            "id": 1,
+            "category": "mock",
+            "alias": "模拟点位1"
+        },
+        {
+            "global_id": 16,
+            "channel_id": 5,
+            "id": 2,
+            "category": "mock",
+            "alias": "模拟点位2"
+        },
+        {
+            "global_id": 300,
+            "channel_id": 5,
+            "id": 3,
+            "category": "mock",
+            "alias": "模拟参数300"
+        },
+        {
+            "global_id": 301,
+            "channel_id": 5,
+            "id": 4,
+            "category": "mock",
+            "alias": "模拟参数301"
+        },
+        {
+            "global_id": 302,
+            "channel_id": 5,
+            "id": 5,
+            "category": "mock",
+            "alias": "模拟参数302"
+        },
+        {
+            "global_id": 303,
+            "channel_id": 5,
+            "id": 6,
+            "category": "mock",
+            "alias": "模拟参数303"
+        },
+        {
+            "global_id": 304,
+            "channel_id": 5,
+            "id": 7,
+            "category": "mock",
+            "alias": "模拟参数304"
+        },
+        {
+            "global_id": 305,
+            "channel_id": 5,
+            "id": 8,
+            "category": "mock",
+            "alias": "模拟参数305"
+        },
+        {
+            "global_id": 306,
+            "channel_id": 5,
+            "id": 9,
+            "category": "mock",
+            "alias": "模拟参数306"
+        },
+        {
+            "global_id": 307,
+            "channel_id": 5,
+            "id": 10,
+            "category": "mock",
+            "alias": "模拟参数307"
+        },
+        {
+            "global_id": 308,
+            "channel_id": 5,
+            "id": 11,
+            "category": "mock",
+            "alias": "模拟参数308"
+        },
+        {
+            "global_id": 309,
+            "channel_id": 5,
+            "id": 12,
+            "category": "mock",
+            "alias": "模拟参数309"
+        },
+        {
+            "global_id": 310,
+            "channel_id": 5,
+            "id": 13,
+            "category": "mock",
+            "alias": "模拟参数310"
+        }
+    ],
+    "scenes": [
+        {
+            "name": "openAll",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 1
+                },
+                {
+                    "id": 2,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 3,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 4,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 5,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 6,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 7,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 8,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 9,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 10,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 11,
+                    "value": 1,
+                    "delay": 1000
+                },
+                {
+                    "id": 12,
+                    "value": 1,
+                    "delay": 1000
+                }
+            ]
+        },
+        {
+            "name": "closeAll",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 0
+                },
+                {
+                    "id": 2,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 3,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 4,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 5,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 6,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 7,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 8,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 9,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 10,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 11,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 12,
+                    "value": 0,
+                    "delay": 100
+                }
+            ]
+        }
+    ],
+    "web_server": {
+        "port": 8080
+    },
+    "log": {
+        "level": "info",
+        "target": "console"
+    }
+}

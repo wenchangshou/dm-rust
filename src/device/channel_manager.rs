@@ -1,16 +1,17 @@
+use dashmap::DashMap;
 /// 通道管理器 - 负责物理设备通信层
 use std::sync::Arc;
-use dashmap::DashMap;
-use tokio::sync::{RwLock, broadcast};
-use tracing::{info, warn, error};
+use tokio::sync::{broadcast, RwLock};
+use tracing::{info, warn};
 
-use crate::config::{ChannelConfig, StatuteType};
-use crate::protocols::{Protocol, PjlinkProtocol, ModbusProtocol, ModbusSlaveProtocol,
-                       XinkeQ1Protocol, ComputerControlProtocol, CustomProtocol,
-                       ScreenNjlgPlcProtocol, HsPowerSequencerProtocol, NovastarProtocol,
-                       MockProtocol};
-use crate::utils::{Result, DeviceError};
 use super::DeviceEvent;
+use crate::config::{ChannelConfig, StatuteType};
+use crate::protocols::{
+    ComputerControlProtocol, CustomProtocol, HsPowerSequencerProtocol, MockProtocol,
+    ModbusProtocol, ModbusSlaveProtocol, NovastarProtocol, PjlinkProtocol, Protocol,
+    QnSmartPlcProtocol, ScreenNjlgPlcProtocol, Splicer3dProtocol, XinkeQ1Protocol, YkVapProtocol,
+};
+use crate::utils::{DeviceError, Result};
 
 /// 通道管理器
 pub struct ChannelManager {
@@ -40,7 +41,10 @@ impl ChannelManager {
 
             match Self::create_channel(config).await {
                 Ok(channel) => {
-                    info!("通道 {} ({:?}) 初始化成功", config.channel_id, config.statute);
+                    info!(
+                        "通道 {} ({:?}) 初始化成功",
+                        config.channel_id, config.statute
+                    );
                     channels.insert(config.channel_id, channel);
 
                     // 发送连接事件
@@ -63,9 +67,7 @@ impl ChannelManager {
         let mut params = if let Some(args) = &config.arguments {
             // 如果 arguments 是对象，转换为 HashMap
             if let Some(obj) = args.as_object() {
-                obj.iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect()
+                obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
             } else {
                 // 如果不是对象，使用空 HashMap
                 std::collections::HashMap::new()
@@ -77,34 +79,29 @@ impl ChannelManager {
 
         // 添加 auto_call 配置（如果存在）
         if let Some(auto_call) = &config.auto_call {
-            params.insert("auto_call".to_string(), serde_json::to_value(auto_call).unwrap());
+            params.insert(
+                "auto_call".to_string(),
+                serde_json::to_value(auto_call).unwrap(),
+            );
         }
 
         // 使用协议的 from_config 方法创建实例，协议自己解析配置
         let protocol: Box<dyn Protocol> = match config.statute {
-            StatuteType::Pjlink => {
-                PjlinkProtocol::from_config(config.channel_id, &params)?
-            }
+            StatuteType::Pjlink => PjlinkProtocol::from_config(config.channel_id, &params)?,
 
-            StatuteType::Modbus => {
-                ModbusProtocol::from_config(config.channel_id, &params)?
-            }
+            StatuteType::Modbus => ModbusProtocol::from_config(config.channel_id, &params)?,
 
             StatuteType::ModbusSlave => {
                 ModbusSlaveProtocol::from_config(config.channel_id, &params)?
             }
 
-            StatuteType::XinkeQ1 => {
-                XinkeQ1Protocol::from_config(config.channel_id, &params)?
-            }
+            StatuteType::XinkeQ1 => XinkeQ1Protocol::from_config(config.channel_id, &params)?,
 
             StatuteType::ComputerControl => {
                 ComputerControlProtocol::from_config(config.channel_id, &params)?
             }
 
-            StatuteType::Custom => {
-                CustomProtocol::from_config(config.channel_id, &params)?
-            }
+            StatuteType::Custom => CustomProtocol::from_config(config.channel_id, &params)?,
 
             StatuteType::ScreenNjlgPlc => {
                 ScreenNjlgPlcProtocol::from_config(config.channel_id, &params)?
@@ -114,18 +111,21 @@ impl ChannelManager {
                 HsPowerSequencerProtocol::from_config(config.channel_id, &params)?
             }
 
-            StatuteType::Novastar => {
-                NovastarProtocol::from_config(config.channel_id, &params)?
-            }
+            StatuteType::Novastar => NovastarProtocol::from_config(config.channel_id, &params)?,
 
-            StatuteType::Mock => {
-                MockProtocol::from_config(config.channel_id, &params)?
-            }
+            StatuteType::QnSmartPlc => QnSmartPlcProtocol::from_config(config.channel_id, &params)?,
+
+            StatuteType::Mock => MockProtocol::from_config(config.channel_id, &params)?,
+
+            StatuteType::Splicer3d => Splicer3dProtocol::from_config(config.channel_id, &params)?,
+
+            StatuteType::YkVap => YkVapProtocol::from_config(config.channel_id, &params)?,
 
             _ => {
-                return Err(DeviceError::ProtocolError(
-                    format!("不支持的协议类型: {:?}", config.statute)
-                ));
+                return Err(DeviceError::ProtocolError(format!(
+                    "不支持的协议类型: {:?}",
+                    config.statute
+                )));
             }
         };
 
@@ -138,7 +138,9 @@ impl ChannelManager {
 
     /// 写入数据到指定通道的设备
     pub async fn write(&self, channel_id: u32, device_id: u32, value: i32) -> Result<()> {
-        let channel = self.channels.get(&channel_id)
+        let channel = self
+            .channels
+            .get(&channel_id)
             .ok_or_else(|| DeviceError::ChannelNotFound(channel_id))?;
 
         let mut protocol = channel.protocol.write().await;
@@ -147,7 +149,9 @@ impl ChannelManager {
 
     /// 从指定通道的设备读取数据
     pub async fn read(&self, channel_id: u32, device_id: u32) -> Result<i32> {
-        let channel = self.channels.get(&channel_id)
+        let channel = self
+            .channels
+            .get(&channel_id)
             .ok_or_else(|| DeviceError::ChannelNotFound(channel_id))?;
 
         let protocol = channel.protocol.read().await;
@@ -161,7 +165,9 @@ impl ChannelManager {
         command: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let channel = self.channels.get(&channel_id)
+        let channel = self
+            .channels
+            .get(&channel_id)
             .ok_or_else(|| DeviceError::ChannelNotFound(channel_id))?;
 
         let mut protocol = channel.protocol.write().await;
@@ -206,7 +212,9 @@ impl ChannelManager {
         method_name: &str,
         args: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let channel = self.channels.get(&channel_id)
+        let channel = self
+            .channels
+            .get(&channel_id)
             .ok_or_else(|| DeviceError::ChannelNotFound(channel_id))?;
 
         let mut protocol = channel.protocol.write().await;
@@ -215,7 +223,9 @@ impl ChannelManager {
 
     /// 获取通道支持的方法列表
     pub async fn get_channel_methods(&self, channel_id: u32) -> Result<Vec<String>> {
-        let channel = self.channels.get(&channel_id)
+        let channel = self
+            .channels
+            .get(&channel_id)
             .ok_or_else(|| DeviceError::ChannelNotFound(channel_id))?;
 
         let protocol = channel.protocol.read().await;

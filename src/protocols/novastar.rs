@@ -26,29 +26,25 @@ const RS232_BAUD: u32 = 115200;
 
 // 命令类型
 const CMD_READ_MODE_ID_TCP: [u8; 20] = [
-    0x55, 0xAA, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 
-    0x02, 0x00, 0x57, 0x56
+    0x55, 0xAA, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+    0x02, 0x00, 0x57, 0x56,
 ];
 
 const CMD_READ_MODE_ID_RS232: [u8; 20] = [
-    0x55, 0xAA, 0x00, 0x14, 0xFE, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02,
-    0x02, 0x00, 0x6D, 0x56
+    0x55, 0xAA, 0x00, 0x14, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02,
+    0x02, 0x00, 0x6D, 0x56,
 ];
 
 // 场景加载基础命令（不含场景号和校验和）
 const CMD_LOAD_SCENE_BASE: [u8; 18] = [
-    0x55, 0xAA, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x51, 0x13,
-    0x01, 0x00
+    0x55, 0xAA, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x51, 0x13,
+    0x01, 0x00,
 ];
 
 // 场景加载成功响应
 const RESP_LOAD_SCENE_SUCCESS: [u8; 20] = [
-    0xAA, 0x55, 0x00, 0x00, 0x00, 0xFE, 0x00, 0x00,
-    0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x51, 0x13,
-    0x00, 0x00, 0xB9, 0x56
+    0xAA, 0x55, 0x00, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x51, 0x13,
+    0x00, 0x00, 0xB9, 0x56,
 ];
 
 /// 通信方式枚举
@@ -71,17 +67,21 @@ impl NovastarProtocol {
 
     pub fn new_serial(port_name: String, baud_rate: u32) -> Self {
         Self {
-            connection_type: ConnectionType::Serial { port_name, baud_rate },
+            connection_type: ConnectionType::Serial {
+                port_name,
+                baud_rate,
+            },
         }
     }
 
     /// 计算校验和
-    /// SUM = data[2..18] + 0x5555
+    /// SUM = data[2..] + 0x5555 (从第3个字节到末尾)
     /// SUM_L = SUM & 0xFF (低8位)
     /// SUM_H = (SUM >> 8) & 0xFF (高8位)
     fn calculate_checksum(data: &[u8]) -> (u8, u8) {
         let mut sum: u16 = 0x5555;
-        for &byte in &data[2..data.len()-2] { // 跳过帧头和最后的校验位
+        for &byte in &data[2..] {
+            // 从第3个字节开始计算到末尾（调用时还未添加校验和）
             sum = sum.wrapping_add(byte as u16);
         }
         let sum_l = (sum & 0xFF) as u8;
@@ -91,6 +91,7 @@ impl NovastarProtocol {
 
     /// 构建场景加载命令
     fn build_load_scene_command(scene_id: u8) -> Result<Vec<u8>> {
+        println!("构建场景{}加载命令", scene_id);
         if scene_id < 1 || scene_id > 10 {
             return Err(DeviceError::Other("场景编号必须在1-10之间".to_string()).into());
         }
@@ -103,7 +104,7 @@ impl NovastarProtocol {
         let (sum_l, sum_h) = Self::calculate_checksum(&command);
         command.push(sum_l);
         command.push(sum_h);
-        command.push(FRAME_TAIL);
+        // 注意：FRAME_TAIL (0x56) 已包含在校验和计算中，不需要额外添加
 
         debug!("构建场景{}加载命令: {:02X?}", scene_id, command);
         Ok(command)
@@ -112,29 +113,27 @@ impl NovastarProtocol {
     /// 发送命令并接收响应 (TCP)
     async fn send_command_tcp(&self, addr: &str, port: u16, command: &[u8]) -> Result<Vec<u8>> {
         debug!("连接到 TCP 设备: {}:{}", addr, port);
-        
+
         let mut stream = match tokio::time::timeout(
             Duration::from_secs(5),
-            TcpStream::connect(format!("{}:{}", addr, port))
-        ).await {
+            TcpStream::connect(format!("{}:{}", addr, port)),
+        )
+        .await
+        {
             Ok(Ok(s)) => s,
             Ok(Err(e)) => {
                 warn!("TCP 连接失败: {}", e);
-                return Err(DeviceError::ConnectionError(
-                    format!("连接失败: {}", e)
-                ).into());
-            },
+                return Err(DeviceError::ConnectionError(format!("连接失败: {}", e)).into());
+            }
             Err(_) => {
                 warn!("TCP 连接超时");
-                return Err(DeviceError::Other(
-                    "TCP 连接超时 (5秒)".to_string()
-                ).into());
+                return Err(DeviceError::Other("TCP 连接超时 (5秒)".to_string()).into());
             }
         };
 
         info!("TCP 连接成功");
         debug!("发送命令: {:02X?}", command);
-        
+
         stream.write_all(command).await?;
         stream.flush().await?;
 
@@ -144,36 +143,40 @@ impl NovastarProtocol {
             Ok(Ok(_)) => {
                 debug!("接收响应: {:02X?}", response);
                 Ok(response)
-            },
+            }
             Ok(Err(e)) => {
                 warn!("读取响应失败: {}", e);
-                Err(DeviceError::ConnectionError(
-                    format!("读取响应失败: {}", e)
-                ).into())
-            },
+                Err(DeviceError::ConnectionError(format!("读取响应失败: {}", e)).into())
+            }
             Err(_) => {
                 warn!("读取响应超时");
-                Err(DeviceError::Other(
-                    "设备响应超时 (3秒), 请检查设备连接和供电".to_string()
-                ).into())
+                Err(
+                    DeviceError::Other("设备响应超时 (3秒), 请检查设备连接和供电".to_string())
+                        .into(),
+                )
             }
         }
     }
 
     /// 发送命令并接收响应 (RS232)
-    async fn send_command_serial(&self, port_name: &str, baud_rate: u32, command: &[u8]) -> Result<Vec<u8>> {
+    async fn send_command_serial(
+        &self,
+        port_name: &str,
+        baud_rate: u32,
+        command: &[u8],
+    ) -> Result<Vec<u8>> {
         debug!("打开串口: {}, 波特率: {}", port_name, baud_rate);
-        
+
         let mut stream = tokio_serial::new(port_name, baud_rate)
             .data_bits(tokio_serial::DataBits::Eight)
             .parity(tokio_serial::Parity::None)
             .stop_bits(tokio_serial::StopBits::One)
             .timeout(Duration::from_millis(1000))
             .open_native_async()?;
-        
+
         info!("串口连接成功");
         debug!("发送命令: {:02X?}", command);
-        
+
         stream.write_all(command).await?;
         stream.flush().await?;
 
@@ -183,18 +186,17 @@ impl NovastarProtocol {
             Ok(Ok(_)) => {
                 debug!("接收响应: {:02X?}", response);
                 Ok(response)
-            },
+            }
             Ok(Err(e)) => {
                 warn!("读取响应失败: {}", e);
-                Err(DeviceError::ConnectionError(
-                    format!("读取响应失败: {}", e)
-                ).into())
-            },
+                Err(DeviceError::ConnectionError(format!("读取响应失败: {}", e)).into())
+            }
             Err(_) => {
                 warn!("读取响应超时");
-                Err(DeviceError::Other(
-                    "设备响应超时 (3秒), 请检查串口连接和设备供电".to_string()
-                ).into())
+                Err(
+                    DeviceError::Other("设备响应超时 (3秒), 请检查串口连接和设备供电".to_string())
+                        .into(),
+                )
             }
         }
     }
@@ -202,11 +204,13 @@ impl NovastarProtocol {
     /// 发送命令 (自动选择通信方式)
     async fn send_command(&self, command: &[u8]) -> Result<Vec<u8>> {
         match &self.connection_type {
-            ConnectionType::Tcp { addr, port } => {
-                self.send_command_tcp(addr, *port, command).await
-            },
-            ConnectionType::Serial { port_name, baud_rate } => {
-                self.send_command_serial(port_name, *baud_rate, command).await
+            ConnectionType::Tcp { addr, port } => self.send_command_tcp(addr, *port, command).await,
+            ConnectionType::Serial {
+                port_name,
+                baud_rate,
+            } => {
+                self.send_command_serial(port_name, *baud_rate, command)
+                    .await
             }
         }
     }
@@ -219,16 +223,14 @@ impl NovastarProtocol {
         };
 
         let response = self.send_command(command).await?;
-        
+
         // 验证响应帧头
         if response.len() >= 2 && &response[0..2] == RESPONSE_HEADER {
             info!("读取 Mode ID 成功");
             Ok(response)
         } else {
             warn!("Mode ID 响应格式错误: {:02X?}", response);
-            Err(DeviceError::ProtocolError(
-                format!("响应格式错误: {:02X?}", response)
-            ).into())
+            Err(DeviceError::ProtocolError(format!("响应格式错误: {:02X?}", response)).into())
         }
     }
 
@@ -239,6 +241,7 @@ impl NovastarProtocol {
         }
 
         let command = Self::build_load_scene_command(scene_id)?;
+        println!("Novastar load scene: {:02X?}", command);
         let response = self.send_command(&command).await?;
 
         // 检查响应是否为成功
@@ -250,16 +253,14 @@ impl NovastarProtocol {
             Ok(false)
         } else {
             warn!("场景 {} 加载响应格式错误: {:02X?}", scene_id, response);
-            Err(DeviceError::ProtocolError(
-                format!("响应格式错误: {:02X?}", response)
-            ).into())
+            Err(DeviceError::ProtocolError(format!("响应格式错误: {:02X?}", response)).into())
         }
     }
 
     /// 执行自定义命令
     pub async fn execute(&mut self, command: &str, params: Value) -> Result<Value> {
         info!("执行 Novastar 命令: {}, 参数: {:?}", command, params);
-        
+
         match command {
             "read_mode_id" => {
                 let response = self.read_mode_id().await?;
@@ -271,8 +272,9 @@ impl NovastarProtocol {
             "load_scene" => {
                 let scene_id = params["scene_id"]
                     .as_u64()
-                    .ok_or(DeviceError::Other("缺少 scene_id 参数".to_string()))? as u8;
-                
+                    .ok_or(DeviceError::Other("缺少 scene_id 参数".to_string()))?
+                    as u8;
+
                 let success = self.load_scene(scene_id).await?;
                 Ok(json!({
                     "success": success,
@@ -290,7 +292,10 @@ impl NovastarProtocol {
 
 #[async_trait]
 impl Protocol for NovastarProtocol {
-    fn from_config(_channel_id: u32, params: &HashMap<String, Value>) -> crate::utils::Result<Box<dyn Protocol>>
+    fn from_config(
+        _channel_id: u32,
+        params: &HashMap<String, Value>,
+    ) -> crate::utils::Result<Box<dyn Protocol>>
     where
         Self: Sized,
     {
@@ -322,7 +327,9 @@ impl Protocol for NovastarProtocol {
                 .get("port_name")
                 .or_else(|| params.get("serial_port"))
                 .and_then(|v| v.as_str())
-                .ok_or(DeviceError::ConfigError("缺少 port_name 或 serial_port 参数".to_string()))?
+                .ok_or(DeviceError::ConfigError(
+                    "缺少 port_name 或 serial_port 参数".to_string(),
+                ))?
                 .to_string();
 
             let baud_rate = params
@@ -330,7 +337,10 @@ impl Protocol for NovastarProtocol {
                 .and_then(|v| v.as_u64())
                 .unwrap_or(RS232_BAUD as u64) as u32;
 
-            info!("创建 Novastar RS232 协议: {}, 波特率: {}", port_name, baud_rate);
+            info!(
+                "创建 Novastar RS232 协议: {}, 波特率: {}",
+                port_name, baud_rate
+            );
             Ok(Box::new(Self::new_serial(port_name, baud_rate)))
         }
     }
@@ -344,33 +354,33 @@ impl Protocol for NovastarProtocol {
     async fn get_status(&self) -> crate::utils::Result<Value> {
         // 通过读取 Mode ID 来检查设备状态
         match self.connection_type {
-            ConnectionType::Tcp { ref addr, port } => {
-                Ok(json!({
-                    "connection_type": "TCP",
-                    "addr": addr,
-                    "port": port,
-                    "online": true
-                }))
-            },
-            ConnectionType::Serial { ref port_name, baud_rate } => {
-                Ok(json!({
-                    "connection_type": "RS232",
-                    "port_name": port_name,
-                    "baud_rate": baud_rate,
-                    "online": true
-                }))
-            }
+            ConnectionType::Tcp { ref addr, port } => Ok(json!({
+                "connection_type": "TCP",
+                "addr": addr,
+                "port": port,
+                "online": true
+            })),
+            ConnectionType::Serial {
+                ref port_name,
+                baud_rate,
+            } => Ok(json!({
+                "connection_type": "RS232",
+                "port_name": port_name,
+                "baud_rate": baud_rate,
+                "online": true
+            })),
         }
     }
 
     async fn write(&mut self, id: u32, value: i32) -> crate::utils::Result<()> {
-        // id 对应场景号 (1-10)
-        if id < 1 || id > 10 {
+        println!("Novastar write: id: {}, value: {}", id, value);
+
+        if value < 1 || value > 10 {
             return Err(DeviceError::Other("场景编号必须在1-10之间".to_string()));
         }
 
-        if value > 0 {
-            self.load_scene(id as u8)
+        if id == 1 {
+            self.load_scene((value - 1) as u8)
                 .await
                 .map_err(|e| DeviceError::Other(e.to_string()))?;
         }
@@ -379,7 +389,9 @@ impl Protocol for NovastarProtocol {
 
     async fn read(&self, _id: u32) -> crate::utils::Result<i32> {
         // Novastar 不支持读取当前场景状态
-        Err(DeviceError::Other("Novastar 协议不支持读取场景状态".to_string()))
+        Err(DeviceError::Other(
+            "Novastar 协议不支持读取场景状态".to_string(),
+        ))
     }
 
     fn name(&self) -> &str {
@@ -393,9 +405,6 @@ impl Protocol for NovastarProtocol {
     }
 
     fn get_methods(&self) -> Vec<String> {
-        vec![
-            "read_mode_id".to_string(),
-            "load_scene".to_string(),
-        ]
+        vec!["read_mode_id".to_string(), "load_scene".to_string()]
     }
 }

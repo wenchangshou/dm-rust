@@ -1,0 +1,60 @@
+{
+  "system": {
+    "log_level": "info",
+    "http_port": 8080
+  },
+  "web_server": {
+    "enable": true,
+    "port": 8080
+  },
+  "channels": [
+    {
+      "channel_id": 1,
+      "enable": true,
+      "statute": "qn-smart-plc",
+      "arguments": {
+        "addr": "192.168.11.19",
+        "port": 20502,
+        "slave_id": 50
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1,
+      "channel_id": 1,
+      "id": 1,
+      "category": "scene",
+      "alias": "QN Smart PLC"
+    },
+    {
+      "global_id": 2,
+      "channel_id": 1,
+      "id": 2,
+      "category": "scene",
+      "alias": "QN Smart PLC"
+    },
+    {
+      "global_id": 3,
+      "channel_id": 1,
+      "id": 3,
+      "category": "scene",
+      "alias": "QN Smart PLC"
+    },
+    {
+      "global_id": 4,
+      "channel_id": 1,
+      "id": 4,
+      "category": "scene",
+      "alias": "QN Smart PLC"
+    },
+    {
+      "global_id": 5,
+      "channel_id": 1,
+      "id": 5,
+      "category": "scene",
+      "alias": "QN Smart PLC"
+    }
+  ],
+  "scenes": []
+}

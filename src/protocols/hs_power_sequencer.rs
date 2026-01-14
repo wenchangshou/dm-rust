@@ -65,9 +65,9 @@ const ADDR_VOLTAGE_PROTECT_1: u16 = 0x236C;
 const ADDR_VOLTAGE_PROTECT_2: u16 = 0x236D;
 
 pub struct HsPowerSequencerProtocol {
-    port_name: String,      // 串口设备名,如 /dev/ttyUSB0 或 COM1
-    baud_rate: u32,         // 波特率,默认 9600
-    device_address: u8,     // 设备地址,出厂默认 0x01
+    port_name: String,  // 串口设备名,如 /dev/ttyUSB0 或 COM1
+    baud_rate: u32,     // 波特率,默认 9600
+    device_address: u8, // 设备地址,出厂默认 0x01
 }
 
 impl HsPowerSequencerProtocol {
@@ -82,14 +82,14 @@ impl HsPowerSequencerProtocol {
     /// 打开串口连接
     async fn connect(&self) -> Result<SerialStream> {
         debug!("打开串口: {}, 波特率: {}", self.port_name, self.baud_rate);
-        
+
         let port = tokio_serial::new(&self.port_name, self.baud_rate)
             .data_bits(tokio_serial::DataBits::Eight)
             .parity(tokio_serial::Parity::None)
             .stop_bits(tokio_serial::StopBits::One)
             .timeout(Duration::from_millis(1000))
             .open_native_async()?;
-        
+
         info!("HS 电源时序器串口连接成功");
         Ok(port)
     }
@@ -105,10 +105,10 @@ impl HsPowerSequencerProtocol {
     /// 发送命令并接收响应
     async fn send_command(&self, command: &[u8]) -> Result<Vec<u8>> {
         let mut stream = self.connect().await?;
-        
+
         let frame = self.build_frame(command);
         debug!("发送数据帧: {:02X?}", frame);
-        
+
         stream.write_all(&frame).await?;
         stream.flush().await?;
 
@@ -120,18 +120,21 @@ impl HsPowerSequencerProtocol {
         match tokio::time::timeout(timeout, stream.read_exact(&mut header)).await {
             Ok(Ok(_)) => {
                 if header != PROTOCOL_HEADER {
-                    warn!("响应帧头不匹配: {:02X?}, 期望: {:02X?}", header, PROTOCOL_HEADER);
-                    return Err(DeviceError::ProtocolError(
-                        format!("响应帧头不匹配: 收到 {:02X?}, 期望 {:02X?}", header, PROTOCOL_HEADER)
-                    ).into());
+                    warn!(
+                        "响应帧头不匹配: {:02X?}, 期望: {:02X?}",
+                        header, PROTOCOL_HEADER
+                    );
+                    return Err(DeviceError::ProtocolError(format!(
+                        "响应帧头不匹配: 收到 {:02X?}, 期望 {:02X?}",
+                        header, PROTOCOL_HEADER
+                    ))
+                    .into());
                 }
-            },
+            }
             Ok(Err(e)) => {
                 warn!("读取响应帧头失败: {}", e);
-                return Err(DeviceError::ConnectionError(
-                    format!("读取响应失败: {}", e)
-                ).into());
-            },
+                return Err(DeviceError::ConnectionError(format!("读取响应失败: {}", e)).into());
+            }
             Err(_) => {
                 warn!("读取响应超时 ({}秒)", timeout.as_secs());
                 return Err(DeviceError::Other(
@@ -146,18 +149,14 @@ impl HsPowerSequencerProtocol {
             Ok(Ok(_)) => {
                 debug!("接收响应: {:02X?}", response);
                 Ok(response)
-            },
+            }
             Ok(Err(e)) => {
                 warn!("读取响应数据失败: {}", e);
-                Err(DeviceError::ConnectionError(
-                    format!("读取响应数据失败: {}", e)
-                ).into())
-            },
+                Err(DeviceError::ConnectionError(format!("读取响应数据失败: {}", e)).into())
+            }
             Err(_) => {
                 warn!("读取响应数据超时");
-                Err(DeviceError::Other(
-                    "读取响应数据超时, 设备可能未正确响应".to_string()
-                ).into())
+                Err(DeviceError::Other("读取响应数据超时, 设备可能未正确响应".to_string()).into())
             }
         }
     }
@@ -180,7 +179,7 @@ impl HsPowerSequencerProtocol {
         ];
 
         let response = self.send_command(&command).await?;
-        
+
         // 检查响应
         if response[0] == self.device_address && response[1] == RESP_SUCCESS {
             info!("通道 {} 开启成功", channel);
@@ -211,7 +210,7 @@ impl HsPowerSequencerProtocol {
         ];
 
         let response = self.send_command(&command).await?;
-        
+
         if response[0] == self.device_address && response[1] == RESP_SUCCESS {
             info!("通道 {} 关闭成功", channel);
             Ok(true)
@@ -358,7 +357,7 @@ impl HsPowerSequencerProtocol {
         ];
 
         let response = self.send_command(&command).await?;
-        
+
         // 响应格式: [addr, func, addr_hi, addr_lo, ch1, ch2, ..., chN]
         let mut status = Vec::new();
         for i in 4..response.len() {
@@ -374,7 +373,15 @@ impl HsPowerSequencerProtocol {
     }
 
     /// 设置设备时间
-    pub async fn set_time(&self, year: u8, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Result<bool> {
+    pub async fn set_time(
+        &self,
+        year: u8,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> Result<bool> {
         // 转换为BCD码
         let year_bcd = ((year / 10) << 4) | (year % 10);
         let month_bcd = ((month / 10) << 4) | (month % 10);
@@ -450,7 +457,14 @@ impl HsPowerSequencerProtocol {
     }
 
     /// 设置电压保护参数
-    pub async fn set_voltage_protection(&self, over_voltage: u16, under_voltage: u8, hysteresis: u8, over_en: bool, under_en: bool) -> Result<bool> {
+    pub async fn set_voltage_protection(
+        &self,
+        over_voltage: u16,
+        under_voltage: u8,
+        hysteresis: u8,
+        over_en: bool,
+        under_en: bool,
+    ) -> Result<bool> {
         // 先设置过压和欠压值
         let command1 = [
             self.device_address,
@@ -487,15 +501,24 @@ impl HsPowerSequencerProtocol {
     /// 执行自定义命令
     pub async fn execute(&mut self, command: &str, params: Value) -> Result<Value> {
         info!("执行 HS 电源时序器命令: {}, 参数: {:?}", command, params);
-        debug!("设备地址: {}, 串口: {}", self.device_address, self.port_name);
+        debug!(
+            "设备地址: {}, 串口: {}",
+            self.device_address, self.port_name
+        );
         match command {
             "channel_on" => {
-                let channel = params["channel"].as_u64().ok_or(DeviceError::Other("缺少channel参数".to_string()))? as u8;
+                let channel = params["channel"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少channel参数".to_string()))?
+                    as u8;
                 let result = self.channel_on(channel).await?;
                 Ok(json!({ "success": result }))
             }
             "channel_off" => {
-                let channel = params["channel"].as_u64().ok_or(DeviceError::Other("缺少channel参数".to_string()))? as u8;
+                let channel = params["channel"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少channel参数".to_string()))?
+                    as u8;
                 let result = self.channel_off(channel).await?;
                 Ok(json!({ "success": result }))
             }
@@ -516,9 +539,18 @@ impl HsPowerSequencerProtocol {
                 Ok(json!({ "success": result }))
             }
             "set_delay" => {
-                let channel = params["channel"].as_u64().ok_or(DeviceError::Other("缺少channel参数".to_string()))? as u8;
-                let delay_ms = params["delay_ms"].as_u64().ok_or(DeviceError::Other("缺少delay_ms参数".to_string()))? as u32;
-                let is_on = params.get("is_on").and_then(|v| v.as_bool()).unwrap_or(true);
+                let channel = params["channel"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少channel参数".to_string()))?
+                    as u8;
+                let delay_ms = params["delay_ms"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少delay_ms参数".to_string()))?
+                    as u32;
+                let is_on = params
+                    .get("is_on")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
                 let result = self.set_channel_delay(channel, delay_ms, is_on).await?;
                 Ok(json!({ "success": result }))
             }
@@ -527,13 +559,30 @@ impl HsPowerSequencerProtocol {
                 Ok(json!({ "channels": status }))
             }
             "set_time" => {
-                let year = params["year"].as_u64().ok_or(DeviceError::Other("缺少year参数".to_string()))? as u8;
-                let month = params["month"].as_u64().ok_or(DeviceError::Other("缺少month参数".to_string()))? as u8;
-                let day = params["day"].as_u64().ok_or(DeviceError::Other("缺少day参数".to_string()))? as u8;
-                let hour = params["hour"].as_u64().ok_or(DeviceError::Other("缺少hour参数".to_string()))? as u8;
-                let minute = params["minute"].as_u64().ok_or(DeviceError::Other("缺少minute参数".to_string()))? as u8;
+                let year = params["year"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少year参数".to_string()))?
+                    as u8;
+                let month = params["month"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少month参数".to_string()))?
+                    as u8;
+                let day = params["day"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少day参数".to_string()))?
+                    as u8;
+                let hour = params["hour"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少hour参数".to_string()))?
+                    as u8;
+                let minute = params["minute"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少minute参数".to_string()))?
+                    as u8;
                 let second = params.get("second").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
-                let result = self.set_time(year, month, day, hour, minute, second).await?;
+                let result = self
+                    .set_time(year, month, day, hour, minute, second)
+                    .await?;
                 Ok(json!({ "success": result }))
             }
             "read_address" => {
@@ -541,7 +590,10 @@ impl HsPowerSequencerProtocol {
                 Ok(json!({ "address": address }))
             }
             "write_address" => {
-                let new_address = params["address"].as_u64().ok_or(DeviceError::Other("缺少address参数".to_string()))? as u8;
+                let new_address = params["address"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少address参数".to_string()))?
+                    as u8;
                 let result = self.write_device_address(new_address).await?;
                 Ok(json!({ "success": result }))
             }
@@ -550,12 +602,35 @@ impl HsPowerSequencerProtocol {
                 Ok(json!({ "success": result }))
             }
             "set_voltage_protection" => {
-                let over_voltage = params["over_voltage"].as_u64().ok_or(DeviceError::Other("缺少over_voltage参数".to_string()))? as u16;
-                let under_voltage = params["under_voltage"].as_u64().ok_or(DeviceError::Other("缺少under_voltage参数".to_string()))? as u8;
-                let hysteresis = params.get("hysteresis").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
-                let over_en = params.get("over_enable").and_then(|v| v.as_bool()).unwrap_or(true);
-                let under_en = params.get("under_enable").and_then(|v| v.as_bool()).unwrap_or(true);
-                let result = self.set_voltage_protection(over_voltage, under_voltage, hysteresis, over_en, under_en).await?;
+                let over_voltage = params["over_voltage"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少over_voltage参数".to_string()))?
+                    as u16;
+                let under_voltage = params["under_voltage"]
+                    .as_u64()
+                    .ok_or(DeviceError::Other("缺少under_voltage参数".to_string()))?
+                    as u8;
+                let hysteresis = params
+                    .get("hysteresis")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u8;
+                let over_en = params
+                    .get("over_enable")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                let under_en = params
+                    .get("under_enable")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                let result = self
+                    .set_voltage_protection(
+                        over_voltage,
+                        under_voltage,
+                        hysteresis,
+                        over_en,
+                        under_en,
+                    )
+                    .await?;
                 Ok(json!({ "success": result }))
             }
             _ => Err(DeviceError::Other(format!("未知命令: {}", command)).into()),
@@ -565,7 +640,10 @@ impl HsPowerSequencerProtocol {
 
 #[async_trait]
 impl Protocol for HsPowerSequencerProtocol {
-    fn from_config(_channel_id: u32, params: &HashMap<String, Value>) -> crate::utils::Result<Box<dyn Protocol>>
+    fn from_config(
+        _channel_id: u32,
+        params: &HashMap<String, Value>,
+    ) -> crate::utils::Result<Box<dyn Protocol>>
     where
         Self: Sized,
     {
@@ -574,7 +652,9 @@ impl Protocol for HsPowerSequencerProtocol {
             .get("port_name")
             .or_else(|| params.get("port"))
             .and_then(|v| v.as_str())
-            .ok_or(DeviceError::ConfigError("缺少port_name或port参数".to_string()))?
+            .ok_or(DeviceError::ConfigError(
+                "缺少port_name或port参数".to_string(),
+            ))?
             .to_string();
 
         // baud_rate: 波特率,默认 9600
@@ -589,8 +669,10 @@ impl Protocol for HsPowerSequencerProtocol {
             .and_then(|v| v.as_u64())
             .unwrap_or(1) as u8;
 
-        debug!("创建 HS 电源时序器协议: port={}, baud={}, addr={}", 
-            port_name, baud_rate, device_address);
+        debug!(
+            "创建 HS 电源时序器协议: port={}, baud={}, addr={}",
+            port_name, baud_rate, device_address
+        );
 
         Ok(Box::new(Self::new(port_name, baud_rate, device_address)))
     }
@@ -602,7 +684,8 @@ impl Protocol for HsPowerSequencerProtocol {
     }
 
     async fn get_status(&self) -> crate::utils::Result<Value> {
-        let status = self.read_device_status()
+        let status = self
+            .read_device_status()
             .await
             .map_err(|e| DeviceError::Other(e.to_string()))?;
         Ok(json!({ "channels": status }))
@@ -623,10 +706,11 @@ impl Protocol for HsPowerSequencerProtocol {
     }
 
     async fn read(&self, id: u32) -> crate::utils::Result<i32> {
-        let status = self.read_device_status()
+        let status = self
+            .read_device_status()
             .await
             .map_err(|e| DeviceError::Other(e.to_string()))?;
-        
+
         let channel_idx = (id as usize).saturating_sub(1);
         if channel_idx < status.len() {
             Ok(if status[channel_idx] { 1 } else { 0 })
@@ -640,7 +724,9 @@ impl Protocol for HsPowerSequencerProtocol {
     }
 
     async fn call_method(&mut self, method_name: &str, args: Value) -> crate::utils::Result<Value> {
-        HsPowerSequencerProtocol::execute(self, method_name, args).await.map_err(|e| DeviceError::Other(e.to_string()))
+        HsPowerSequencerProtocol::execute(self, method_name, args)
+            .await
+            .map_err(|e| DeviceError::Other(e.to_string()))
     }
 
     fn get_methods(&self) -> Vec<String> {

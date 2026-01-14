@@ -33,7 +33,8 @@ use super::file_api::{
 };
 use super::file_page::{CONFIG_MANAGER_HTML, DEBUG_CONSOLE_HTML, FILE_MANAGER_HTML};
 use super::resource_api::{serve_static_resource, upload_material, ResourceManagerState};
-// use super::swagger::swagger_routes;
+#[cfg(feature = "swagger")]
+use super::swagger::swagger_routes;
 
 /// API 路由前缀
 const API_PREFIX: &str = "/lspcapi";
@@ -152,8 +153,6 @@ impl WebServer {
                     .layer(Extension(file_manager_state));
             }
         }
-
-
 
         // Swagger UI（仅在 swagger feature 启用时）
         #[cfg(feature = "swagger")]

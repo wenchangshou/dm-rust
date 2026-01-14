@@ -1,7 +1,7 @@
+use crate::utils::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::utils::Result;
 
 /// 协议trait定义
 ///
@@ -58,9 +58,11 @@ pub trait Protocol: Send + Sync {
     /// # 默认实现
     /// 返回错误，协议可以选择性实现此方法
     async fn call_method(&mut self, method_name: &str, _args: Value) -> Result<Value> {
-        Err(crate::utils::DeviceError::Other(
-            format!("协议 {} 不支持自定义方法: {}", self.name(), method_name)
-        ))
+        Err(crate::utils::DeviceError::Other(format!(
+            "协议 {} 不支持自定义方法: {}",
+            self.name(),
+            method_name
+        )))
     }
 
     /// 获取支持的方法列表
@@ -75,25 +77,30 @@ pub trait Protocol: Send + Sync {
     }
 }
 
-pub mod pjlink;
-pub mod modbus;
-pub mod modbus_slave;
-pub mod xinke_q1;
 pub mod computer_control;
 pub mod custom;
-pub mod screen_njlg_plc;
 pub mod hs_power_sequencer;
-pub mod novastar;
 pub mod mock;
+pub mod modbus;
+pub mod modbus_slave;
+pub mod novastar;
+pub mod pjlink;
+pub mod qn_smart_plc;
+pub mod screen_njlg_plc;
+pub mod splicer_3d;
+pub mod xinke_q1;
+pub mod yk_vap;
 
-pub use pjlink::PjlinkProtocol;
-pub use modbus::ModbusProtocol;
-pub use modbus_slave::ModbusSlaveProtocol;
-pub use xinke_q1::XinkeQ1Protocol;
 pub use computer_control::ComputerControlProtocol;
 pub use custom::CustomProtocol;
-pub use screen_njlg_plc::ScreenNjlgPlcProtocol;
 pub use hs_power_sequencer::HsPowerSequencerProtocol;
-pub use novastar::NovastarProtocol;
 pub use mock::MockProtocol;
-
+pub use modbus::ModbusProtocol;
+pub use modbus_slave::ModbusSlaveProtocol;
+pub use novastar::NovastarProtocol;
+pub use pjlink::PjlinkProtocol;
+pub use qn_smart_plc::QnSmartPlcProtocol;
+pub use screen_njlg_plc::ScreenNjlgPlcProtocol;
+pub use splicer_3d::Splicer3dProtocol;
+pub use xinke_q1::XinkeQ1Protocol;
+pub use yk_vap::YkVapProtocol;

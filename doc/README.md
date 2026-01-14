@@ -62,7 +62,7 @@ dm-rust/
 | Modbus | 工业标准协议（遥信/遥控） | ✅ 基础框架 |
 | ModbusSlave | Modbus网关（管理多组Modbus） | ✅ 基础框架 |
 | XinkeQ1 | 新科开关机模块 | ✅ 基础框架 |
-| ComputerControl | Wake-on-LAN开关机 | ✅ 基础框架 |
+| ComputerControl | WOL开机/UDP关机/UDP控制/心跳/Ping检测 | ✅ 已完善 |
 | Custom | 自定义协议 | ✅ 基础框架 |
 | BFHD1 | 内蒙电脑开关机 | 🚧 待实现 |
 | NmDk | 内蒙灯光控制 | 🚧 待实现 |
@@ -235,7 +235,8 @@ curl -X POST http://localhost:8080/device/batchRead \
 
 快速参考：[BATCH_READ_QUICK_REF.md](BATCH_READ_QUICK_REF.md)  
 完整文档：[BATCH_READ_API.md](BATCH_READ_API.md)  
-实现总结：[BATCH_READ_SUMMARY.md](BATCH_READ_SUMMARY.md)
+实现总结：[BATCH_READ_SUMMARY.md](BATCH_READ_SUMMARY.md)  
+电脑控制：[COMPUTER_CONTROL_USAGE.md](COMPUTER_CONTROL_USAGE.md)
 
 ### 自定义方法支持
 

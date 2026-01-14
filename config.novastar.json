@@ -15,8 +15,8 @@
       "alias": "Novastar LED控制器 (TCP)",
       "arguments": {
         "use_tcp": true,
-        "addr": "192.168.1.100",
-        "port": 15200
+        "addr": "192.168.11.19",
+        "port": 20000
       }
     }
   ],
@@ -27,69 +27,6 @@
       "id": 1,
       "category": "scene",
       "alias": "场景1"
-    },
-    {
-      "global_id": 2,
-      "channel_id": 1,
-      "id": 2,
-      "category": "scene",
-      "alias": "场景2"
-    },
-    {
-      "global_id": 3,
-      "channel_id": 1,
-      "id": 3,
-      "category": "scene",
-      "alias": "场景3"
-    },
-    {
-      "global_id": 4,
-      "channel_id": 1,
-      "id": 4,
-      "category": "scene",
-      "alias": "场景4"
-    },
-    {
-      "global_id": 5,
-      "channel_id": 1,
-      "id": 5,
-      "category": "scene",
-      "alias": "场景5"
-    },
-    {
-      "global_id": 6,
-      "channel_id": 1,
-      "id": 6,
-      "category": "scene",
-      "alias": "场景6"
-    },
-    {
-      "global_id": 7,
-      "channel_id": 1,
-      "id": 7,
-      "category": "scene",
-      "alias": "场景7"
-    },
-    {
-      "global_id": 8,
-      "channel_id": 1,
-      "id": 8,
-      "category": "scene",
-      "alias": "场景8"
-    },
-    {
-      "global_id": 9,
-      "channel_id": 1,
-      "id": 9,
-      "category": "scene",
-      "alias": "场景9"
-    },
-    {
-      "global_id": 10,
-      "channel_id": 1,
-      "id": 10,
-      "category": "scene",
-      "alias": "场景10"
     }
   ],
   "scenes": []
