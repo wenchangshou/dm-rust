@@ -1,0 +1,104 @@
+{
+  "channels": [
+    {
+      "channel_id": 10,
+      "enable": true,
+      "statute": "xFusion",
+      "arguments": {
+        "nodes": [
+          {
+            "id": 101,
+            "mac": "00:11:22:33:44:55",
+            "ip": "10.103.69.210",
+            "port": 8888,
+            "ibmc_url": "https://10.103.69.212",
+            "ibmc_username": "Administrator",
+            "ibmc_password": "Admin@9000",
+            "system_id": "1"
+          },
+          {
+            "id": 102,
+            "mac": "00:11:22:33:44:56",
+            "ip": "10.103.69.211",
+            "port": 8888,
+            "ibmc_url": "https://10.103.69.213",
+            "ibmc_username": "Administrator",
+            "ibmc_password": "Admin@9000",
+            "system_id": "1"
+          },
+          {
+            "id": 103,
+            "mac": "00:11:22:33:44:57",
+            "ip": "10.103.69.212",
+            "port": 8888,
+            "ibmc_url": "https://10.103.69.214",
+            "ibmc_username": "Administrator",
+            "ibmc_password": "Admin@9000",
+            "system_id": "1"
+          }
+        ],
+        "broadcast_addr": "255.255.255.255",
+        "wol_port": 9,
+        "shutdown_port": 4001
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "global_id": 1001,
+      "channel_id": 10,
+      "id": 101,
+      "alias": "xFusion服务器1"
+    },
+    {
+      "global_id": 1002,
+      "channel_id": 10,
+      "id": 102,
+      "alias": "xFusion服务器2"
+    },
+    {
+      "global_id": 1003,
+      "channel_id": 10,
+      "id": 103,
+      "alias": "xFusion服务器3"
+    }
+  ],
+  "scenes": [
+    {
+      "name": "开启所有xFusion服务器",
+      "nodes": [
+        {
+          "id": 1001,
+          "value": 1
+        },
+        {
+          "id": 1002,
+          "value": 1,
+          "delay": 5000
+        }
+      ]
+    },
+    {
+      "name": "关闭所有xFusion服务器",
+      "nodes": [
+        {
+          "id": 1001,
+          "value": 0
+        },
+        {
+          "id": 1002,
+          "value": 0,
+          "delay": 5000
+        }
+      ]
+    }
+  ],
+  "task_settings": {
+    "timeout_ms": 30000,
+    "check_interval_ms": 500,
+    "max_retries": 3
+  },
+  "web_server": {
+    "port": 8080
+  }
+}

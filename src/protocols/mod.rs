@@ -88,8 +88,11 @@ pub mod pjlink;
 pub mod qn_smart_plc;
 pub mod screen_njlg_plc;
 pub mod splicer_3d;
+pub mod storage;
 pub mod xinke_q1;
+pub mod xfusion;
 pub mod yk_vap;
+
 
 pub use computer_control::ComputerControlProtocol;
 pub use custom::CustomProtocol;
@@ -102,5 +105,7 @@ pub use pjlink::PjlinkProtocol;
 pub use qn_smart_plc::QnSmartPlcProtocol;
 pub use screen_njlg_plc::ScreenNjlgPlcProtocol;
 pub use splicer_3d::Splicer3dProtocol;
+pub use xfusion::XFusionProtocol;
 pub use xinke_q1::XinkeQ1Protocol;
 pub use yk_vap::YkVapProtocol;
+

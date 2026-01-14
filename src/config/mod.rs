@@ -247,6 +247,8 @@ pub enum StatuteType {
     Splicer3d,
     #[serde(rename = "yk-vap")]
     YkVap,
+    #[serde(rename = "xFusion")]
+    XFusion,
 }
 
 /// 节点配置

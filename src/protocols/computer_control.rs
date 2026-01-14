@@ -8,6 +8,7 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::{Duration, Instant};
 
 use mac_address::MacAddress;
+use tracing::{debug, error, info, warn};
 use wake_on_lan::MagicPacket;
 
 struct ComputerNode {
@@ -37,25 +38,44 @@ pub struct ComputerControlProtocol {
 }
 
 impl ComputerControlProtocol {
-    async fn wake(&self, mac_bytes: &[u8; 6]) -> Result<()> {
+    async fn wake(&self, mac: &str, mac_bytes: &[u8; 6]) -> Result<()> {
         let to_addr = (self.broadcast_addr, self.wol_port);
-        let mac = *mac_bytes;
+        let mac_val = *mac_bytes;
+
+        info!(
+            "通道 {} [WOL]: 发送魔术包到 {} ({}), 目标广播: {}:{}",
+            self.channel_id, mac, hex::encode(mac_bytes), self.broadcast_addr, self.wol_port
+        );
 
         tokio::task::spawn_blocking(move || {
-            let packet = MagicPacket::new(&mac);
+            let packet = MagicPacket::new(&mac_val);
             packet.send_to(to_addr, (Ipv4Addr::new(0, 0, 0, 0), 0))
         })
         .await
-        .map_err(|e| DeviceError::ProtocolError(format!("WOL 任务执行失败: {}", e)))?
-        .map_err(|e| DeviceError::ProtocolError(format!("发送 WOL 魔术包失败: {}", e)))?;
+        .map_err(|e| {
+            error!("通道 {} [WOL]: 任务执行失败: {}", self.channel_id, e);
+            DeviceError::ProtocolError(format!("WOL 任务执行失败: {}", e))
+        })?
+        .map_err(|e| {
+            error!("通道 {} [WOL]: 发送魔术包失败: {}", self.channel_id, e);
+            DeviceError::ProtocolError(format!("发送 WOL 魔术包失败: {}", e))
+        })?;
 
         Ok(())
     }
 
     async fn request_shutdown(&self, computer: &ComputerNode) -> Result<()> {
         if let (Some(ip), Some(port)) = (computer.ip, computer.port) {
+            info!(
+                "通道 {} [Shutdown]: 向电脑 ID:{} 发送 UDP 命令 (IP:{}, Port:{})",
+                self.channel_id, computer.id, ip, port
+            );
             self.send_udp(ip, port, "shutdown", false).await?;
         } else {
+            info!(
+                "通道 {} [Shutdown]: 向电脑 ID:{} 发送广播命令 (MAC:{}, 广播地址: {}:{})",
+                self.channel_id, computer.id, computer.mac_text, self.broadcast_addr, self.shutdown_port
+            );
             // Legacy broadcast shutdown using MAC address
             let socket = tokio::net::UdpSocket::bind((Ipv4Addr::new(0, 0, 0, 0), 0))
                 .await
@@ -83,6 +103,7 @@ impl ComputerControlProtocol {
         command: &str,
         wait_response: bool,
     ) -> Result<Option<String>> {
+        debug!("通道 {} [UDP]: 发送命令 '{}' 到 {}:{}", self.channel_id, command, ip, port);
         let socket = tokio::net::UdpSocket::bind((Ipv4Addr::new(0, 0, 0, 0), 0))
             .await
             .map_err(|e| DeviceError::ProtocolError(format!("绑定 UDP socket 失败: {}", e)))?;
@@ -99,9 +120,13 @@ impl ComputerControlProtocol {
             match tokio::time::timeout(timeout, socket.recv_from(&mut buf)).await {
                 Ok(Ok((n, _))) => {
                     let response = String::from_utf8_lossy(&buf[..n]).trim().to_string();
+                    debug!("通道 {} [UDP]: 收到来自 {}:{} 的响应: {}", self.channel_id, ip, port, response);
                     Ok(Some(response))
                 }
-                _ => Ok(None),
+                _ => {
+                    debug!("通道 {} [UDP]: 等待 {}:{} 响应超时", self.channel_id, ip, port);
+                    Ok(None)
+                }
             }
         } else {
             Ok(None)
@@ -121,15 +146,61 @@ impl ComputerControlProtocol {
         // 标准化 MAC 地址对比 (忽略大小写)
         for computer in &mut self.computers {
             if computer.mac_text.eq_ignore_ascii_case(mac) {
+                debug!("通道 {} [Heartbeat]: 更新电脑 ID:{} (MAC:{}) 的心跳", self.channel_id, computer.id, mac);
                 computer.last_heartbeat = Some(Instant::now());
                 return true;
             }
         }
+        warn!("通道 {} [Heartbeat]: 收到未知 MAC 地址的心跳: {}", self.channel_id, mac);
         false
     }
 
     fn find_computer_by_id(&self, id: u32) -> Option<&ComputerNode> {
         self.computers.iter().find(|c| c.id == id)
+    }
+
+    async fn is_computer_online(&self, computer: &ComputerNode) -> bool {
+        if self.ping_computer(computer).await {
+            true
+        } else if let Some(last) = computer.last_heartbeat {
+            Instant::now().duration_since(last) < Duration::from_secs(10)
+        } else {
+            false
+        }
+    }
+
+    async fn get_audio_status(&self, computer: &ComputerNode) -> (Option<i32>, Option<bool>, bool) {
+        let is_online = self.is_computer_online(computer).await;
+        if !is_online {
+            return (None, None, false);
+        }
+
+        if let (Some(ip), Some(port)) = (computer.ip, computer.port) {
+            match self.send_udp(ip, port, "get", true).await {
+                Ok(Some(resp)) => {
+                    // 解析格式: "volume: 50, mute: false"
+                    let mut volume = None;
+                    let mut mute = None;
+
+                    for part in resp.split(',') {
+                        let kv: Vec<&str> = part.split(':').collect();
+                        if kv.len() == 2 {
+                            let key = kv[0].trim().to_lowercase();
+                            let value = kv[1].trim();
+                            if key == "volume" {
+                                volume = value.parse::<i32>().ok();
+                            } else if key == "mute" {
+                                mute = value.parse::<bool>().ok();
+                            }
+                        }
+                    }
+                    (volume, mute, true)
+                }
+                _ => (None, None, true),
+            }
+        } else {
+            (None, None, is_online)
+        }
     }
 }
 
@@ -201,6 +272,13 @@ impl Protocol for ComputerControlProtocol {
             .map(|p| p as u16)
             .unwrap_or(wol_port);
 
+        debug!(
+            "通道 {} [Config]: 初始化 ComputerControlProtocol, 包含 {} 台电脑, 广播地址: {}",
+            channel_id,
+            computers.len(),
+            broadcast_addr
+        );
+
         Ok(Box::new(Self {
             channel_id,
             computers,
@@ -211,6 +289,7 @@ impl Protocol for ComputerControlProtocol {
     }
 
     async fn execute(&mut self, command: &str, params: Value) -> Result<Value> {
+        debug!("通道 {} [Execute]: 收到命令 '{}', 参数: {}", self.channel_id, command, params);
         match command {
             "powerOn" | "wake" | "wol" => {
                 // 如果指定了 id，只唤醒该 ID；否则唤醒所有？或者报错？
@@ -235,16 +314,16 @@ impl Protocol for ComputerControlProtocol {
                 }
 
                 if targets.is_empty() {
-                    // 如果没指定参数，是否唤醒全部？暂时只支持指定
-                    // 或者 params 可能是空，唤醒全部？
-                    // 按照通常习惯，没有参数可能意味着全部，但对于开关机比较危险，这里选择如果没匹配到则不做操作或只支持 id/mac
+                    warn!("通道 {} [Execute]: {} 命令未找到匹配的电脑, 参数: {}", self.channel_id, command, params);
                     return Err(DeviceError::ProtocolError(
                         "powerOn 需要指定 id 或 mac".into(),
                     ));
                 }
 
                 for comp in targets {
-                    self.wake(&comp.mac_bytes).await?;
+                    let mac_text = comp.mac_text.clone();
+                    let mac_bytes = comp.mac_bytes;
+                    self.wake(&mac_text, &mac_bytes).await?;
                 }
 
                 Ok(serde_json::json!({ "status": "ok", "action": "wake" }))
@@ -269,6 +348,7 @@ impl Protocol for ComputerControlProtocol {
                 }
 
                 if targets.is_empty() {
+                    warn!("通道 {} [Execute]: {} 命令未找到匹配的电脑, 参数: {}", self.channel_id, command, params);
                     return Err(DeviceError::ProtocolError(
                         "powerOff 需要指定 id 或 mac".into(),
                     ));
@@ -301,6 +381,7 @@ impl Protocol for ComputerControlProtocol {
                     self.send_udp(ip, port, method, false).await?;
                     Ok(serde_json::json!({ "status": "ok", "method": method }))
                 } else {
+                    warn!("通道 {} [Execute]: ID 为 {} 的电脑缺少 IP 或 端口配置", self.channel_id, id);
                     Err(DeviceError::ProtocolError(format!(
                         "ID 为 {} 的电脑缺少 IP 或 端口配置",
                         id
@@ -323,8 +404,30 @@ impl Protocol for ComputerControlProtocol {
                     )))
                 }
             }
+            "get" => {
+                let id = params
+                    .get("id")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as u32)
+                    .ok_or_else(|| DeviceError::ProtocolError("get 命令需要 id 参数".into()))?;
+
+                let computer = self.find_computer_by_id(id).ok_or_else(|| {
+                    DeviceError::ProtocolError(format!("未找到 ID 为 {} 的电脑", id))
+                })?;
+
+                let (volume, mute, online) = self.get_audio_status(computer).await;
+                Ok(serde_json::json!({
+                    "id": id,
+                    "online": online,
+                    "volume": volume,
+                    "mute": mute,
+                }))
+            }
             "getAllStatus" => self.get_status().await,
-            _ => Err(DeviceError::ProtocolError(format!("未知命令: {}", command))),
+            _ => {
+                warn!("通道 {} [Execute]: 未知命令: {}", self.channel_id, command);
+                Err(DeviceError::ProtocolError(format!("未知命令: {}", command)))
+            }
         }
     }
 
@@ -337,13 +440,7 @@ impl Protocol for ComputerControlProtocol {
         let mut status_list = Vec::new();
 
         for comp in &self.computers {
-            let is_online = if self.ping_computer(comp).await {
-                true
-            } else if let Some(last) = comp.last_heartbeat {
-                now.duration_since(last) < timeout
-            } else {
-                false
-            };
+            let is_online = self.is_computer_online(comp).await;
 
             status_list.push(serde_json::json!({
                 "id": comp.id,
@@ -363,6 +460,7 @@ impl Protocol for ComputerControlProtocol {
     async fn write(&mut self, id: u32, value: i32) -> Result<()> {
         // write 通过 id 控制具体哪台机器
         // 1: 开机, 0: 关机
+        debug!("通道 {} [Write]: ID {}, Value {}", self.channel_id, id, value);
         let comp = self
             .computers
             .iter()
@@ -373,12 +471,15 @@ impl Protocol for ComputerControlProtocol {
         let mac_bytes = comp.mac_bytes;
 
         match value {
-            1 => self.wake(&mac_bytes).await,
+            1 => self.wake(&mac_text, &mac_bytes).await,
             0 => self.request_shutdown(comp).await,
-            v => Err(DeviceError::ProtocolError(format!(
-                "computerControl write 仅支持 0(关机) 或 1(开机)，收到: {}",
-                v
-            ))),
+            v => {
+                warn!("通道 {} [Write]: 不支持的值 {}", self.channel_id, v);
+                Err(DeviceError::ProtocolError(format!(
+                    "computerControl write 仅支持 0(关机) 或 1(开机)，收到: {}",
+                    v
+                )))
+            }
         }
     }
 
@@ -392,14 +493,9 @@ impl Protocol for ComputerControlProtocol {
 
         let now = Instant::now();
         let timeout = Duration::from_secs(10);
-        let is_online = if self.ping_computer(comp).await {
-            true
-        } else if let Some(last) = comp.last_heartbeat {
-            now.duration_since(last) < timeout
-        } else {
-            false
-        };
+        let is_online = self.is_computer_online(comp).await;
 
+        debug!("通道 {} [Read]: ID {} 在线状态: {}", self.channel_id, id, is_online);
         Ok(if is_online { 1 } else { 0 })
     }
 
