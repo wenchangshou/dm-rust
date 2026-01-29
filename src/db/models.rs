@@ -59,6 +59,8 @@ pub struct Screen {
     pub content: String,
     /// 是否激活
     pub active: bool,
+    /// 是否固定（0: 否, 1: 是）
+    pub fixed: i8,
     /// 创建时间
     pub created_at: DateTime<Utc>,
     /// 更新时间
@@ -81,6 +83,9 @@ pub struct CreateScreenRequest {
     /// 是否激活
     #[serde(default)]
     pub active: bool,
+    /// 是否固定（0: 否, 1: 是，默认为 0）
+    #[serde(default)]
+    pub fixed: i8,
 }
 
 fn generate_uuid() -> String {
@@ -99,6 +104,8 @@ pub struct UpdateScreenRequest {
     pub content: Option<String>,
     /// 是否激活（可选）
     pub active: Option<bool>,
+    /// 是否固定（可选，0: 否, 1: 是）
+    pub fixed: Option<i8>,
 }
 
 /// lspc_material 表模型（合并了素材和资源信息）

@@ -12,10 +12,23 @@ WORKDIR /app
 # 复制 Cargo 文件用于依赖缓存
 COPY Cargo.toml Cargo.lock* ./
 
+# 配置 Cargo 使用中国镜像源加速下载（使用 sparse 协议）
+ENV CARGO_HOME=/usr/local/cargo
+RUN mkdir -p $CARGO_HOME && \
+    echo '[source.crates-io]' > $CARGO_HOME/config.toml && \
+    echo 'replace-with = "ustc"' >> $CARGO_HOME/config.toml && \
+    echo '' >> $CARGO_HOME/config.toml && \
+    echo '[source.ustc]' >> $CARGO_HOME/config.toml && \
+    echo 'registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' >> $CARGO_HOME/config.toml && \
+    echo '' >> $CARGO_HOME/config.toml && \
+    echo '[net]' >> $CARGO_HOME/config.toml && \
+    echo 'git-fetch-with-cli = true' >> $CARGO_HOME/config.toml && \
+    cat $CARGO_HOME/config.toml
+
 # 创建虚拟 src 目录用于构建依赖
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
-    cargo build --release && \
+    cargo build --release --features swagger && \
     rm -rf src
 
 # 复制实际源代码
@@ -23,7 +36,7 @@ COPY src ./src
 
 # 重新构建应用
 RUN touch src/main.rs && \
-    cargo build --release
+    cargo build --release --features swagger
 
 # 运行阶段
 FROM debian:bookworm-slim
