@@ -10,14 +10,13 @@ use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::IntoParams;
 
-use crate::db::{
-    Database,
-    CreateScreenRequest, UpdateScreenRequest, Screen,
-    CreateMaterialRequest, UpdateMaterialRequest, MaterialResponse,
-    BatchReplaceScreensRequest, BatchReplaceMaterialsRequest,
-};
 use super::resource_api::ResourceManagerState;
 use super::response::ApiResponse;
+use crate::db::{
+    BatchReplaceMaterialsRequest, BatchReplaceScreensRequest, CreateMaterialRequest,
+    CreateScreenRequest, Database, MaterialResponse, Screen, UpdateMaterialRequest,
+    UpdateScreenRequest,
+};
 
 /// 错误码
 mod error_codes {
@@ -37,6 +36,8 @@ pub struct ScreenQuery {
     pub screen_type: Option<String>,
     /// 按激活状态过滤
     pub active: Option<bool>,
+    /// 按固定状态过滤（0: 不固定, 1: 固定）
+    pub fixed: Option<i8>,
 }
 
 /// 获取所有 Screen
@@ -55,7 +56,9 @@ pub async fn list_screens(
 ) -> Json<ApiResponse<Vec<Screen>>> {
     let result = if let (Some(ref screen_type), Some(active)) = (&query.screen_type, query.active) {
         // 同时指定类型和激活状态：AND 查询
-        db.screens().find_by_type_and_active(screen_type, active).await
+        db.screens()
+            .find_by_type_and_active(screen_type, active)
+            .await
     } else if let Some(ref screen_type) = query.screen_type {
         // 只指定类型
         db.screens().find_by_type(screen_type).await
@@ -316,14 +319,21 @@ pub async fn list_materials(
     match result {
         Ok(materials) => {
             // 添加完整的静态资源路径前缀
-            let materials = materials.into_iter().map(|mut m| {
-                if !m.path.is_empty() {
-                    if let Some(Extension(ref state)) = resource_state {
-                        m.path = format!("{}/{}", state.config.url_prefix.trim_end_matches('/'), m.path);
+            let materials = materials
+                .into_iter()
+                .map(|mut m| {
+                    if !m.path.is_empty() {
+                        if let Some(Extension(ref state)) = resource_state {
+                            m.path = format!(
+                                "{}/{}",
+                                state.config.url_prefix.trim_end_matches('/'),
+                                m.path
+                            );
+                        }
                     }
-                }
-                m
-            }).collect();
+                    m
+                })
+                .collect();
             Json(ApiResponse {
                 state: error_codes::SUCCESS,
                 message: "成功".to_string(),
@@ -359,7 +369,11 @@ pub async fn get_material(
             // 添加完整的静态资源路径前缀
             if !material.path.is_empty() {
                 if let Some(Extension(ref state)) = resource_state {
-                    material.path = format!("{}/{}", state.config.url_prefix.trim_end_matches('/'), material.path);
+                    material.path = format!(
+                        "{}/{}",
+                        state.config.url_prefix.trim_end_matches('/'),
+                        material.path
+                    );
                 }
             }
             Json(ApiResponse {
@@ -518,14 +532,21 @@ pub async fn get_materials_by_screen_id(
     match db.materials().find_by_screen_id(&screen_id).await {
         Ok(materials) => {
             // 添加完整的静态资源路径前缀
-            let materials = materials.into_iter().map(|mut m| {
-                if !m.path.is_empty() {
-                    if let Some(Extension(ref state)) = resource_state {
-                        m.path = format!("{}/{}", state.config.url_prefix.trim_end_matches('/'), m.path);
+            let materials = materials
+                .into_iter()
+                .map(|mut m| {
+                    if !m.path.is_empty() {
+                        if let Some(Extension(ref state)) = resource_state {
+                            m.path = format!(
+                                "{}/{}",
+                                state.config.url_prefix.trim_end_matches('/'),
+                                m.path
+                            );
+                        }
                     }
-                }
-                m
-            }).collect();
+                    m
+                })
+                .collect();
             Json(ApiResponse {
                 state: error_codes::SUCCESS,
                 message: "成功".to_string(),

@@ -20,7 +20,7 @@ impl ScreenRepository {
     /// 获取所有 Screen
     pub async fn find_all(&self) -> Result<Vec<Screen>> {
         let screens = sqlx::query_as::<_, Screen>(
-            "SELECT id, type as screen_type, name, content, active, created_at, updated_at FROM lspc_screen ORDER BY created_at DESC"
+            "SELECT id, type as screen_type, name, content, active, fixed, created_at, updated_at FROM lspc_screen ORDER BY created_at DESC"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -30,7 +30,7 @@ impl ScreenRepository {
     /// 根据 ID 获取 Screen
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Screen>> {
         let screen = sqlx::query_as::<_, Screen>(
-            "SELECT id, type as screen_type, name, content, active, created_at, updated_at FROM lspc_screen WHERE id = ?"
+            "SELECT id, type as screen_type, name, content, active, fixed, created_at, updated_at FROM lspc_screen WHERE id = ?"
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -41,7 +41,7 @@ impl ScreenRepository {
     /// 根据类型获取 Screen
     pub async fn find_by_type(&self, screen_type: &str) -> Result<Vec<Screen>> {
         let screens = sqlx::query_as::<_, Screen>(
-            "SELECT id, type as screen_type, name, content, active, created_at, updated_at FROM lspc_screen WHERE type = ? ORDER BY created_at DESC"
+            "SELECT id, type as screen_type, name, content, active, fixed, created_at, updated_at FROM lspc_screen WHERE type = ? ORDER BY created_at DESC"
         )
         .bind(screen_type)
         .fetch_all(&self.pool)
@@ -52,7 +52,7 @@ impl ScreenRepository {
     /// 获取激活的 Screen
     pub async fn find_active(&self) -> Result<Vec<Screen>> {
         let screens = sqlx::query_as::<_, Screen>(
-            "SELECT id, type as screen_type, name, content, active, created_at, updated_at FROM lspc_screen WHERE active = 1 ORDER BY created_at DESC"
+            "SELECT id, type as screen_type, name, content, active, fixed, created_at, updated_at FROM lspc_screen WHERE active = 1 ORDER BY created_at DESC"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -60,12 +60,27 @@ impl ScreenRepository {
     }
 
     /// 根据类型和激活状态获取 Screen
-    pub async fn find_by_type_and_active(&self, screen_type: &str, active: bool) -> Result<Vec<Screen>> {
+    pub async fn find_by_type_and_active(
+        &self,
+        screen_type: &str,
+        active: bool,
+    ) -> Result<Vec<Screen>> {
         let screens = sqlx::query_as::<_, Screen>(
-            "SELECT id, type as screen_type, name, content, active, created_at, updated_at FROM lspc_screen WHERE type = ? AND active = ? ORDER BY created_at DESC"
+            "SELECT id, type as screen_type, name, content, active, fixed, created_at, updated_at FROM lspc_screen WHERE type = ? AND active = ? ORDER BY created_at DESC"
         )
         .bind(screen_type)
         .bind(active)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(screens)
+    }
+
+    /// 根据固定状态获取 Screen
+    pub async fn find_by_fixed(&self, fixed: i8) -> Result<Vec<Screen>> {
+        let screens = sqlx::query_as::<_, Screen>(
+            "SELECT id, type as screen_type, name, content, active, fixed, created_at, updated_at FROM lspc_screen WHERE fixed = ? ORDER BY created_at DESC"
+        )
+        .bind(fixed)
         .fetch_all(&self.pool)
         .await?;
         Ok(screens)
@@ -81,13 +96,14 @@ impl ScreenRepository {
         };
 
         sqlx::query(
-            "INSERT INTO lspc_screen (id, type, name, content, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO lspc_screen (id, type, name, content, active, fixed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&id)
         .bind(&req.screen_type)
         .bind(&req.name)
         .bind(&req.content)
         .bind(req.active)
+        .bind(req.fixed)
         .bind(now)
         .bind(now)
         .execute(&self.pool)
@@ -99,6 +115,7 @@ impl ScreenRepository {
             name: req.name.clone(),
             content: req.content.clone(),
             active: req.active,
+            fixed: req.fixed,
             created_at: now,
             updated_at: now,
         })
@@ -118,14 +135,16 @@ impl ScreenRepository {
         let name = req.name.as_ref().unwrap_or(&existing.name);
         let content = req.content.as_ref().unwrap_or(&existing.content);
         let active = req.active.unwrap_or(existing.active);
+        let fixed = req.fixed.unwrap_or(existing.fixed);
 
         sqlx::query(
-            "UPDATE lspc_screen SET type = ?, name = ?, content = ?, active = ?, updated_at = ? WHERE id = ?"
+            "UPDATE lspc_screen SET type = ?, name = ?, content = ?, active = ?, fixed = ?, updated_at = ? WHERE id = ?"
         )
         .bind(screen_type)
         .bind(name)
         .bind(content)
         .bind(active)
+        .bind(fixed)
         .bind(now)
         .bind(id)
         .execute(&self.pool)
@@ -137,6 +156,7 @@ impl ScreenRepository {
             name: name.clone(),
             content: content.clone(),
             active,
+            fixed,
             created_at: existing.created_at,
             updated_at: now,
         }))
@@ -226,13 +246,14 @@ impl ScreenRepository {
             };
 
             sqlx::query(
-                "INSERT INTO lspc_screen (id, type, name, content, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO lspc_screen (id, type, name, content, active, fixed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             )
             .bind(&id)
             .bind(&req.screen_type)
             .bind(&req.name)
             .bind(&req.content)
             .bind(req.active)
+            .bind(req.fixed)
             .bind(now)
             .bind(now)
             .execute(&mut *tx)
@@ -244,6 +265,7 @@ impl ScreenRepository {
                 name: req.name.clone(),
                 content: req.content.clone(),
                 active: req.active,
+                fixed: req.fixed,
                 created_at: now,
                 updated_at: now,
             });
