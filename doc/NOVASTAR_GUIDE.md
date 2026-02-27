@@ -2,9 +2,10 @@
 
 ## 协议概述
 
-Novastar LED 控制器通讯协议支持 TCP 和 RS232 两种通信方式：
+Novastar LED 控制器通讯协议支持 TCP、UDP 和 RS232 三种通信方式：
 
-- **TCP 模式**: 端口 15200
+- **TCP 模式**: 端口 15200（默认）
+- **UDP 模式**: 端口 15200
 - **RS232 模式**: 波特率 115200, 8N1
 
 ## 支持功能
@@ -24,7 +25,25 @@ Novastar LED 控制器通讯协议支持 TCP 和 RS232 两种通信方式：
     "channel_id": 1,
     "statute": "novastar",
     "arguments": {
-      "use_tcp": true,
+      "type": "tcp",
+      "addr": "192.168.1.100",
+      "port": 15200
+    }
+  }]
+}
+```
+
+> **兼容说明**: 旧版 `"use_tcp": true` 配置方式仍然有效。
+
+### UDP 模式
+
+```json
+{
+  "channels": [{
+    "channel_id": 1,
+    "statute": "novastar",
+    "arguments": {
+      "type": "udp",
       "addr": "192.168.1.100",
       "port": 15200
     }
@@ -40,13 +59,28 @@ Novastar LED 控制器通讯协议支持 TCP 和 RS232 两种通信方式：
     "channel_id": 1,
     "statute": "novastar",
     "arguments": {
-      "use_tcp": false,
+      "type": "serial",
       "port_name": "/dev/ttyUSB0",
       "baud_rate": 115200
     }
   }]
 }
 ```
+
+> **兼容说明**: 旧版 `"use_tcp": false` 配置方式仍然有效。
+
+---
+
+## 配置参数说明
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `type` | string | 否 | `"tcp"` | 通信方式：`tcp`、`udp`、`serial`（或 `rs232`） |
+| `addr` / `ip` | string | TCP/UDP 必填 | - | 设备 IP 地址 |
+| `port` | number | 否 | `15200` | TCP/UDP 端口号 |
+| `port_name` / `serial_port` | string | RS232 必填 | - | 串口设备路径 |
+| `baud_rate` | number | 否 | `115200` | RS232 波特率 |
+| `use_tcp` | bool | 否 | `true` | **已弃用**，建议使用 `type` 字段 |
 
 ---
 
@@ -192,7 +226,9 @@ class NovastarClient:
         )
         return response.json()
 
-# 使用示例
+# ===== 使用示例 =====
+
+# --- TCP 模式 (配置文件中 type: "tcp") ---
 client = NovastarClient()
 
 # 读取设备信息
@@ -204,6 +240,9 @@ print(client.load_scene(1))
 # 切换到场景 5
 print(client.load_scene(5))
 ```
+
+> **注意**: HTTP API 的调用方式在 TCP、UDP、RS232 三种模式下完全一致，区别仅在配置文件中的
+> `type` 字段。UDP 模式适用于网络环境不稳定、对延迟敏感或不需要可靠传输确认的场景。
 
 ---
 
@@ -220,6 +259,24 @@ print(client.load_scene(5))
    - 设备可能离线或未响应
    - 检查设备供电
    - 验证设备 TCP 端口是否开启
+
+### UDP 模式
+
+1. **发送失败**
+   - 检查 IP 地址和端口 (默认 15200)
+   - 确认网络连通性: `ping 192.168.1.100`
+   - 检查防火墙，确保 UDP 15200 端口未被阻止
+
+2. **响应超时**
+   - UDP 无连接状态，无法保证数据到达
+   - 确认设备支持 UDP 通信
+   - 检查设备供电
+   - 尝试切换到 TCP 模式排查问题
+
+3. **数据丢失**
+   - UDP 不保证可靠传输，偶发丢包属正常现象
+   - 建议在关键控制场景使用 TCP 模式
+   - 可通过重试机制提高可靠性
 
 ### RS232 模式
 
@@ -284,6 +341,29 @@ echo "=== 测试完成 ==="
 ## 快速开始
 
 1. **配置文件**: 使用 `config.novastar.json`
+
+   **TCP 模式**:
+   ```json
+   {
+     "channels": [{
+       "channel_id": 1,
+       "statute": "novastar",
+       "arguments": { "type": "tcp", "addr": "192.168.1.100", "port": 15200 }
+     }]
+   }
+   ```
+
+   **UDP 模式**:
+   ```json
+   {
+     "channels": [{
+       "channel_id": 1,
+       "statute": "novastar",
+       "arguments": { "type": "udp", "addr": "192.168.1.100", "port": 15200 }
+     }]
+   }
+   ```
+
 2. **启动服务**: 
    ```bash
    ./target/release/dm-rust -c config.novastar.json -l info
@@ -299,9 +379,10 @@ echo "=== 测试完成 ==="
 
 ## 技术支持
 
-- 协议版本: V1.0
-- TCP 端口: 15200
+- 协议版本: V1.1
+- TCP/UDP 端口: 15200
 - RS232 波特率: 115200
 - 支持场景数: 10 个
+- 支持通信方式: TCP、UDP、RS232
 
-**更新日期**: 2025-11-11
+**更新日期**: 2026-02-22

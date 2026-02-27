@@ -1,6 +1,6 @@
 // Novastar LED 控制器通讯协议
-// 支持 TCP 和 RS232 两种通信方式
-// TCP 端口: 15200
+// 支持 TCP、UDP 和 RS232 三种通信方式
+// TCP/UDP 端口: 15200
 // RS232: 115200 8N1
 
 use anyhow::Result;
@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, UdpSocket};
 use tokio_serial::SerialPortBuilderExt;
 use tracing::{debug, info, warn};
 
@@ -51,26 +51,37 @@ const RESP_LOAD_SCENE_SUCCESS: [u8; 20] = [
 #[derive(Debug, Clone)]
 enum ConnectionType {
     Tcp { addr: String, port: u16 },
+    Udp { addr: String, port: u16 },
     Serial { port_name: String, baud_rate: u32 },
 }
 
 pub struct NovastarProtocol {
     connection_type: ConnectionType,
+    channel_id: u32,
 }
 
 impl NovastarProtocol {
-    pub fn new_tcp(addr: String, port: u16) -> Self {
+    pub fn new_tcp(addr: String, port: u16, channel_id: u32) -> Self {
         Self {
             connection_type: ConnectionType::Tcp { addr, port },
+            channel_id,
         }
     }
 
-    pub fn new_serial(port_name: String, baud_rate: u32) -> Self {
+    pub fn new_udp(addr: String, port: u16, channel_id: u32) -> Self {
+        Self {
+            connection_type: ConnectionType::Udp { addr, port },
+            channel_id,
+        }
+    }
+
+    pub fn new_serial(port_name: String, baud_rate: u32, channel_id: u32) -> Self {
         Self {
             connection_type: ConnectionType::Serial {
                 port_name,
                 baud_rate,
             },
+            channel_id,
         }
     }
 
@@ -158,6 +169,67 @@ impl NovastarProtocol {
         }
     }
 
+    /// 发送命令并接收响应 (UDP)
+    async fn send_command_udp(&self, addr: &str, port: u16, command: &[u8]) -> Result<Vec<u8>> {
+        debug!("UDP 连接到设备: {}:{}", addr, port);
+
+        let socket = match UdpSocket::bind("0.0.0.0:0").await {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("UDP 绑定失败: {}", e);
+                return Err(DeviceError::ConnectionError(format!("UDP 绑定失败: {}", e)).into());
+            }
+        };
+
+        let target = format!("{}:{}", addr, port);
+        match socket.connect(&target).await {
+            Ok(_) => {
+                info!("UDP 连接成功: {}", target);
+            }
+            Err(e) => {
+                warn!("UDP 连接失败: {}", e);
+                return Err(DeviceError::ConnectionError(format!("UDP 连接失败: {}", e)).into());
+            }
+        }
+
+        debug!("发送命令: {:02X?}", command);
+
+        match tokio::time::timeout(Duration::from_secs(5), socket.send(command)).await {
+            Ok(Ok(n)) => {
+                debug!("UDP 发送成功, {} bytes", n);
+            }
+            Ok(Err(e)) => {
+                warn!("UDP 发送失败: {}", e);
+                return Err(DeviceError::ConnectionError(format!("UDP 发送失败: {}", e)).into());
+            }
+            Err(_) => {
+                warn!("UDP 发送超时");
+                return Err(DeviceError::Other("UDP 发送超时 (5秒)".to_string()).into());
+            }
+        }
+
+        // 读取响应 (超时 3秒)
+        let mut response = vec![0u8; 1024];
+        match tokio::time::timeout(Duration::from_secs(3), socket.recv(&mut response)).await {
+            Ok(Ok(n)) => {
+                response.truncate(n);
+                debug!("接收响应: {:02X?}", response);
+                Ok(response)
+            }
+            Ok(Err(e)) => {
+                warn!("读取响应失败: {}", e);
+                Err(DeviceError::ConnectionError(format!("读取响应失败: {}", e)).into())
+            }
+            Err(_) => {
+                warn!("读取响应超时");
+                Err(
+                    DeviceError::Other("设备响应超时 (3秒), 请检查设备连接和供电".to_string())
+                        .into(),
+                )
+            }
+        }
+    }
+
     /// 发送命令并接收响应 (RS232)
     async fn send_command_serial(
         &self,
@@ -205,6 +277,7 @@ impl NovastarProtocol {
     async fn send_command(&self, command: &[u8]) -> Result<Vec<u8>> {
         match &self.connection_type {
             ConnectionType::Tcp { addr, port } => self.send_command_tcp(addr, *port, command).await,
+            ConnectionType::Udp { addr, port } => self.send_command_udp(addr, *port, command).await,
             ConnectionType::Serial {
                 port_name,
                 baud_rate,
@@ -218,7 +291,7 @@ impl NovastarProtocol {
     /// 读取设备 Mode ID
     pub async fn read_mode_id(&self) -> Result<Vec<u8>> {
         let command = match &self.connection_type {
-            ConnectionType::Tcp { .. } => &CMD_READ_MODE_ID_TCP[..],
+            ConnectionType::Tcp { .. } | ConnectionType::Udp { .. } => &CMD_READ_MODE_ID_TCP[..],
             ConnectionType::Serial { .. } => &CMD_READ_MODE_ID_RS232[..],
         };
 
@@ -243,6 +316,7 @@ impl NovastarProtocol {
         let command = Self::build_load_scene_command(scene_id)?;
         println!("Novastar load scene: {:02X?}", command);
         let response = self.send_command(&command).await?;
+        println!("Novastar response: {:02X?}", response);
 
         // 检查响应是否为成功
         if response == RESP_LOAD_SCENE_SUCCESS {
@@ -293,55 +367,84 @@ impl NovastarProtocol {
 #[async_trait]
 impl Protocol for NovastarProtocol {
     fn from_config(
-        _channel_id: u32,
+        channel_id: u32,
         params: &HashMap<String, Value>,
     ) -> crate::utils::Result<Box<dyn Protocol>>
     where
         Self: Sized,
     {
-        // 检查是使用 TCP 还是 RS232
-        let use_tcp = params
-            .get("use_tcp")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true); // 默认使用 TCP
+        // 通过 "type" 字段确定通信方式: tcp (默认)、udp、serial
+        // 向下兼容: 如果没有 "type" 字段，则使用 "use_tcp" 布尔值
+        let transport = params
+            .get("type")
+            .or_else(|| params.get("transport"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_ascii_lowercase());
 
-        if use_tcp {
-            // TCP 模式
-            let addr = params
-                .get("addr")
-                .or_else(|| params.get("ip"))
-                .and_then(|v| v.as_str())
-                .ok_or(DeviceError::ConfigError("缺少 addr 或 ip 参数".to_string()))?
-                .to_string();
+        let transport = match transport.as_deref() {
+            Some("udp") => "udp",
+            Some("serial") | Some("rs232") => "serial",
+            Some("tcp") => "tcp",
+            None => {
+                // 向下兼容: 使用 use_tcp 布尔值
+                let use_tcp = params
+                    .get("use_tcp")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                if use_tcp { "tcp" } else { "serial" }
+            }
+            Some(other) => {
+                return Err(DeviceError::ConfigError(format!(
+                    "Novastar type 仅支持 tcp/udp/serial，实际: {}",
+                    other
+                )));
+            }
+        };
 
-            let port = params
-                .get("port")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(TCP_PORT as u64) as u16;
+        match transport {
+            "tcp" | "udp" => {
+                let addr = params
+                    .get("addr")
+                    .or_else(|| params.get("ip"))
+                    .and_then(|v| v.as_str())
+                    .ok_or(DeviceError::ConfigError("缺少 addr 或 ip 参数".to_string()))?
+                    .to_string();
 
-            info!("创建 Novastar TCP 协议: {}:{}", addr, port);
-            Ok(Box::new(Self::new_tcp(addr, port)))
-        } else {
-            // RS232 模式
-            let port_name = params
-                .get("port_name")
-                .or_else(|| params.get("serial_port"))
-                .and_then(|v| v.as_str())
-                .ok_or(DeviceError::ConfigError(
-                    "缺少 port_name 或 serial_port 参数".to_string(),
-                ))?
-                .to_string();
+                let port = params
+                    .get("port")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(TCP_PORT as u64) as u16;
 
-            let baud_rate = params
-                .get("baud_rate")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(RS232_BAUD as u64) as u32;
+                if transport == "udp" {
+                    info!("创建 Novastar UDP 协议: {}:{}, channel: {}", addr, port, channel_id);
+                    Ok(Box::new(Self::new_udp(addr, port, channel_id)))
+                } else {
+                    info!("创建 Novastar TCP 协议: {}:{}, channel: {}", addr, port, channel_id);
+                    Ok(Box::new(Self::new_tcp(addr, port, channel_id)))
+                }
+            }
+            _ => {
+                // serial 模式
+                let port_name = params
+                    .get("port_name")
+                    .or_else(|| params.get("serial_port"))
+                    .and_then(|v| v.as_str())
+                    .ok_or(DeviceError::ConfigError(
+                        "缺少 port_name 或 serial_port 参数".to_string(),
+                    ))?
+                    .to_string();
 
-            info!(
-                "创建 Novastar RS232 协议: {}, 波特率: {}",
-                port_name, baud_rate
-            );
-            Ok(Box::new(Self::new_serial(port_name, baud_rate)))
+                let baud_rate = params
+                    .get("baud_rate")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(RS232_BAUD as u64) as u32;
+
+                info!(
+                    "创建 Novastar RS232 协议: {}, 波特率: {}, channel: {}",
+                    port_name, baud_rate, channel_id
+                );
+                Ok(Box::new(Self::new_serial(port_name, baud_rate, channel_id)))
+            }
         }
     }
 
@@ -356,6 +459,12 @@ impl Protocol for NovastarProtocol {
         match self.connection_type {
             ConnectionType::Tcp { ref addr, port } => Ok(json!({
                 "connection_type": "TCP",
+                "addr": addr,
+                "port": port,
+                "online": true
+            })),
+            ConnectionType::Udp { ref addr, port } => Ok(json!({
+                "connection_type": "UDP",
                 "addr": addr,
                 "port": port,
                 "online": true
@@ -379,19 +488,20 @@ impl Protocol for NovastarProtocol {
             return Err(DeviceError::Other("场景编号必须在1-10之间".to_string()));
         }
 
-        if id == 1 {
-            self.load_scene((value - 1) as u8)
-                .await
-                .map_err(|e| DeviceError::Other(e.to_string()))?;
-        }
+        self.load_scene(value as u8)
+            .await
+            .map_err(|e| DeviceError::Other(e.to_string()))?;
+
+        // 写入成功后通过全局缓存持久化
+        crate::utils::cache::set(self.channel_id, id, value);
+        info!("Novastar channel {} node {} 缓存已更新为 {}", self.channel_id, id, value);
+
         Ok(())
     }
 
-    async fn read(&self, _id: u32) -> crate::utils::Result<i32> {
-        // Novastar 不支持读取当前场景状态
-        Err(DeviceError::Other(
-            "Novastar 协议不支持读取场景状态".to_string(),
-        ))
+    async fn read(&self, id: u32) -> crate::utils::Result<i32> {
+        // 从全局缓存中返回最后写入的值
+        Ok(crate::utils::cache::get_or(self.channel_id, id, 0))
     }
 
     fn name(&self) -> &str {

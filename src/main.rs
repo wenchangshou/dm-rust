@@ -8,13 +8,10 @@ async fn main() -> Result<()> {
     #[cfg(windows)]
     {
         let args: Vec<String> = std::env::args().collect();
-        // 如果没有参数或只有可执行文件名，尝试作为服务运行
         if args.len() == 1 {
-            // 尝试作为服务运行
             if let Ok(_) = service::run_as_service() {
                 return Ok(());
             }
-            // 如果不是作为服务运行，继续正常流程
         }
     }
 
