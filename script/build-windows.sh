@@ -60,7 +60,7 @@ package() {
     mkdir -p "$DIST_DIR"
 
     cp "$OUTPUT_DIR/dm-rust.exe" "$DIST_DIR/"
-    cp "$PROJECT_DIR/config.example.json" "$DIST_DIR/config.json"
+    cp "$PROJECT_DIR/config/config.example.json" "$DIST_DIR/config.json"
 
     echo ""
     echo "Distribution package created: $DIST_DIR"

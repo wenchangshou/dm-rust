@@ -2,7 +2,8 @@
 //!
 //! 这是一个模拟设备协议，支持：
 //! - 模拟读写操作
-//! - 内存状态存储
+//! - 内存状态存储（支持持久化）
+//! - 任意 JSON 对象的读写
 //! - 延迟模拟
 //! - 错误模拟
 //! - 自定义方法调用
@@ -27,6 +28,11 @@
 //! - `get_all_values`: 获取所有存储的值
 //! - `batch_write`: 批量写入
 //! - `batch_read`: 批量读取
+//! - `store_json`: 以字符串 key 存储任意 JSON 对象
+//! - `load_json`: 按 key 读取 JSON 对象
+//! - `delete_json`: 按 key 删除 JSON 对象
+//! - `get_all_json`: 获取所有 JSON 对象
+//! - `clear_json`: 清空所有 JSON 对象
 //!
 //! # 自定义方法
 //! - `simulate_fault`: 模拟设备故障
@@ -34,11 +40,11 @@
 //! - `get_statistics`: 获取统计信息
 
 use async_trait::async_trait;
+use rand::Rng;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration};
-use rand::Rng;
 
 use crate::protocols::Protocol;
 use crate::utils::{DeviceError, Result};
@@ -48,6 +54,8 @@ use crate::utils::{DeviceError, Result};
 struct MockState {
     /// 存储的值（地址 -> 值）
     values: HashMap<u32, i32>,
+    /// 任意 JSON 对象存储（字符串 key -> JSON value）
+    json_store: HashMap<String, Value>,
     /// 是否处于故障状态
     fault: bool,
     /// 统计信息
@@ -60,6 +68,7 @@ impl MockState {
     fn new() -> Self {
         Self {
             values: HashMap::new(),
+            json_store: HashMap::new(),
             fault: false,
             read_count: 0,
             write_count: 0,
@@ -118,6 +127,112 @@ impl MockProtocol {
         let mut state = self.state.lock().unwrap();
         state.error_count += 1;
     }
+
+    /// 获取此 channel 的存储文件路径
+    fn get_storage_path(&self) -> std::path::PathBuf {
+        let storage_dir = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join("data")
+            .join("mock_storage");
+        storage_dir.join(format!("channel_{}.json", self.channel_id))
+    }
+
+    /// 将全部状态保存到磁盘
+    fn save_to_disk(&self) {
+        let file_path = self.get_storage_path();
+
+        // 确保目录存在
+        if let Some(parent) = file_path.parent() {
+            if !parent.exists() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    tracing::warn!("Mock [通道{}] 创建存储目录失败: {}", self.channel_id, e);
+                    return;
+                }
+            }
+        }
+
+        // 从内存构建要保存的数据
+        let data = {
+            let state = self.state.lock().unwrap();
+            let values_map: HashMap<String, Value> = state
+                .values
+                .iter()
+                .map(|(k, v)| (k.to_string(), json!(*v)))
+                .collect();
+            json!({
+                "__mock_values": values_map,
+                "__mock_json_store": state.json_store
+            })
+        };
+
+        match serde_json::to_string_pretty(&data) {
+            Ok(content) => {
+                if let Err(e) = std::fs::write(&file_path, content) {
+                    tracing::warn!("Mock [通道{}] 保存存储文件失败: {}", self.channel_id, e);
+                } else {
+                    tracing::debug!(
+                        "Mock [通道{}] 存储已保存到 {:?}",
+                        self.channel_id,
+                        file_path
+                    );
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Mock [通道{}] 序列化存储数据失败: {}", self.channel_id, e);
+            }
+        }
+    }
+
+    /// 从磁盘恢复持久化数据到内存
+    fn restore_from_storage(&self) {
+        let file_path = self.get_storage_path();
+
+        let data: Value = match std::fs::read_to_string(&file_path) {
+            Ok(content) => match serde_json::from_str(&content) {
+                Ok(d) => d,
+                Err(e) => {
+                    tracing::debug!("Mock [通道{}] 解析存储文件失败: {}", self.channel_id, e);
+                    return;
+                }
+            },
+            Err(_) => {
+                tracing::debug!("Mock [通道{}] 存储文件不存在，跳过恢复", self.channel_id);
+                return;
+            }
+        };
+
+        // 恢复 i32 values
+        if let Some(values_json) = data.get("__mock_values") {
+            if let Some(obj) = values_json.as_object() {
+                let mut state = self.state.lock().unwrap();
+                for (k, v) in obj {
+                    if let (Ok(addr), Some(val)) = (k.parse::<u32>(), v.as_i64()) {
+                        state.values.insert(addr, val as i32);
+                    }
+                }
+                tracing::debug!(
+                    "Mock [通道{}] 恢复 {} 条 i32 值",
+                    self.channel_id,
+                    state.values.len()
+                );
+            }
+        }
+
+        // 恢复 json_store
+        if let Some(json_data) = data.get("__mock_json_store") {
+            if let Some(obj) = json_data.as_object() {
+                let mut state = self.state.lock().unwrap();
+                for (k, v) in obj {
+                    state.json_store.insert(k.clone(), v.clone());
+                }
+                tracing::debug!(
+                    "Mock [通道{}] 恢复 {} 条 JSON 对象",
+                    self.channel_id,
+                    state.json_store.len()
+                );
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -153,6 +268,9 @@ impl Protocol for MockProtocol {
             }
         }
 
+        // 从持久化存储恢复数据
+        protocol.restore_from_storage();
+
         tracing::info!(
             "Mock 协议初始化 [通道{}] 延迟:{}ms 错误率:{:.2}%",
             channel_id,
@@ -169,17 +287,18 @@ impl Protocol for MockProtocol {
 
         if self.should_simulate_error() {
             self.record_error();
-            return Err(DeviceError::Other(format!("模拟错误: 命令 '{}' 执行失败", command)));
+            return Err(DeviceError::Other(format!(
+                "模拟错误: 命令 '{}' 执行失败",
+                command
+            )));
         }
 
         match command {
-            "ping" => {
-                Ok(json!({
-                    "status": "ok",
-                    "message": "pong",
-                    "channel_id": self.channel_id
-                }))
-            }
+            "ping" => Ok(json!({
+                "status": "ok",
+                "message": "pong",
+                "channel_id": self.channel_id
+            })),
             "reset" => {
                 let mut state = self.state.lock().unwrap();
                 state.values.clear();
@@ -213,7 +332,7 @@ impl Protocol for MockProtocol {
                     for item in writes {
                         if let (Some(addr), Some(value)) = (
                             item.get("addr").and_then(|v| v.as_u64()),
-                            item.get("value").and_then(|v| v.as_i64())
+                            item.get("value").and_then(|v| v.as_i64()),
                         ) {
                             state.values.insert(addr as u32, value as i32);
                             count += 1;
@@ -250,6 +369,87 @@ impl Protocol for MockProtocol {
                     Err(DeviceError::Other("需要参数 'addrs' 数组".to_string()))
                 }
             }
+            // ====== JSON 对象存储命令 ======
+            "store_json" => {
+                let key = params
+                    .get("key")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| DeviceError::Other("需要字符串参数 'key'".to_string()))?;
+                let value = params
+                    .get("value")
+                    .ok_or_else(|| DeviceError::Other("需要参数 'value'".to_string()))?
+                    .clone();
+
+                {
+                    let mut state = self.state.lock().unwrap();
+                    state.json_store.insert(key.to_string(), value.clone());
+                    state.write_count += 1;
+                }
+                self.save_to_disk();
+
+                Ok(json!({
+                    "status": "ok",
+                    "key": key,
+                    "value": value
+                }))
+            }
+            "load_json" => {
+                let key = params
+                    .get("key")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| DeviceError::Other("需要字符串参数 'key'".to_string()))?;
+
+                let mut state = self.state.lock().unwrap();
+                state.read_count += 1;
+                let value = state.json_store.get(key).cloned();
+
+                Ok(json!({
+                    "status": "ok",
+                    "key": key,
+                    "value": value,
+                    "found": value.is_some()
+                }))
+            }
+            "delete_json" => {
+                let key = params
+                    .get("key")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| DeviceError::Other("需要字符串参数 'key'".to_string()))?;
+
+                let removed = {
+                    let mut state = self.state.lock().unwrap();
+                    state.json_store.remove(key)
+                };
+                if removed.is_some() {
+                    self.save_to_disk();
+                }
+
+                Ok(json!({
+                    "status": "ok",
+                    "key": key,
+                    "deleted": removed.is_some()
+                }))
+            }
+            "get_all_json" => {
+                let state = self.state.lock().unwrap();
+                Ok(json!({
+                    "status": "ok",
+                    "count": state.json_store.len(),
+                    "data": state.json_store
+                }))
+            }
+            "clear_json" => {
+                {
+                    let mut state = self.state.lock().unwrap();
+                    state.json_store.clear();
+                }
+                self.save_to_disk();
+
+                Ok(json!({
+                    "status": "ok",
+                    "message": "所有 JSON 对象已清空"
+                }))
+            }
             _ => Err(DeviceError::Other(format!("不支持的命令: {}", command))),
         }
     }
@@ -268,7 +468,8 @@ impl Protocol for MockProtocol {
                 "read_count": state.read_count,
                 "write_count": state.write_count,
                 "error_count": state.error_count,
-                "stored_values": state.values.len()
+                "stored_values": state.values.len(),
+                "stored_json_objects": state.json_store.len()
             }
         }))
     }
@@ -279,14 +480,25 @@ impl Protocol for MockProtocol {
 
         if self.should_simulate_error() {
             self.record_error();
-            return Err(DeviceError::Other(format!("模拟错误: 写入地址 {} 失败", id)));
+            return Err(DeviceError::Other(format!(
+                "模拟错误: 写入地址 {} 失败",
+                id
+            )));
         }
 
-        let mut state = self.state.lock().unwrap();
-        state.values.insert(id, value);
-        state.write_count += 1;
+        {
+            let mut state = self.state.lock().unwrap();
+            state.values.insert(id, value);
+            state.write_count += 1;
+        }
+        self.save_to_disk();
 
-        tracing::debug!("Mock 写入 [通道{}] 地址:{} 值:{}", self.channel_id, id, value);
+        tracing::debug!(
+            "Mock 写入 [通道{}] 地址:{} 值:{}",
+            self.channel_id,
+            id,
+            value
+        );
         Ok(())
     }
 
@@ -296,14 +508,22 @@ impl Protocol for MockProtocol {
 
         if self.should_simulate_error() {
             self.record_error();
-            return Err(DeviceError::Other(format!("模拟错误: 读取地址 {} 失败", id)));
+            return Err(DeviceError::Other(format!(
+                "模拟错误: 读取地址 {} 失败",
+                id
+            )));
         }
 
         let mut state = self.state.lock().unwrap();
         let value = state.values.get(&id).copied().unwrap_or(0);
         state.read_count += 1;
 
-        tracing::debug!("Mock 读取 [通道{}] 地址:{} 值:{}", self.channel_id, id, value);
+        tracing::debug!(
+            "Mock 读取 [通道{}] 地址:{} 值:{}",
+            self.channel_id,
+            id,
+            value
+        );
         Ok(value)
     }
 
@@ -338,6 +558,7 @@ impl Protocol for MockProtocol {
                     "write_count": state.write_count,
                     "error_count": state.error_count,
                     "stored_values": state.values.len(),
+                    "stored_json_objects": state.json_store.len(),
                     "total_operations": state.read_count + state.write_count
                 }))
             }
@@ -367,7 +588,7 @@ impl Protocol for MockProtocol {
             "set_value" => {
                 if let (Some(addr), Some(value)) = (
                     args.get("addr").and_then(|v| v.as_u64()),
-                    args.get("value").and_then(|v| v.as_i64())
+                    args.get("value").and_then(|v| v.as_i64()),
                 ) {
                     let mut state = self.state.lock().unwrap();
                     state.values.insert(addr as u32, value as i32);
@@ -392,6 +613,9 @@ impl Protocol for MockProtocol {
             "set_delay".to_string(),
             "get_value".to_string(),
             "set_value".to_string(),
+            "store_json".to_string(),
+            "load_json".to_string(),
+            "delete_json".to_string(),
         ]
     }
 }
@@ -422,18 +646,30 @@ mod tests {
         assert_eq!(result["status"], "ok");
 
         // 测试批量写入
-        let result = protocol.execute("batch_write", json!({
-            "writes": [
-                {"addr": 1, "value": 100},
-                {"addr": 2, "value": 200}
-            ]
-        })).await.unwrap();
+        let result = protocol
+            .execute(
+                "batch_write",
+                json!({
+                    "writes": [
+                        {"addr": 1, "value": 100},
+                        {"addr": 2, "value": 200}
+                    ]
+                }),
+            )
+            .await
+            .unwrap();
         assert_eq!(result["written"], 2);
 
         // 测试批量读取
-        let result = protocol.execute("batch_read", json!({
-            "addrs": [1, 2]
-        })).await.unwrap();
+        let result = protocol
+            .execute(
+                "batch_read",
+                json!({
+                    "addrs": [1, 2]
+                }),
+            )
+            .await
+            .unwrap();
         assert_eq!(result["results"][0]["value"], 100);
         assert_eq!(result["results"][1]["value"], 200);
     }
@@ -444,17 +680,138 @@ mod tests {
         let mut protocol = MockProtocol::from_config(1, &params).unwrap();
 
         // 模拟故障
-        protocol.call_method("simulate_fault", json!({})).await.unwrap();
+        protocol
+            .call_method("simulate_fault", json!({}))
+            .await
+            .unwrap();
 
         // 此时读写应该失败
         assert!(protocol.read(1).await.is_err());
         assert!(protocol.write(1, 100).await.is_err());
 
         // 清除故障
-        protocol.call_method("clear_fault", json!({})).await.unwrap();
+        protocol
+            .call_method("clear_fault", json!({}))
+            .await
+            .unwrap();
 
         // 此时读写应该成功
         assert!(protocol.write(1, 100).await.is_ok());
         assert!(protocol.read(1).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_mock_json_store() {
+        let mut protocol = MockProtocol::new(1);
+
+        // 存储任意 JSON 对象
+        let result = protocol
+            .execute(
+                "store_json",
+                json!({
+                    "key": "device_config",
+                    "value": {
+                        "name": "测试设备",
+                        "version": 2,
+                        "settings": {
+                            "brightness": 80,
+                            "contrast": 50,
+                            "tags": ["indoor", "display"]
+                        }
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result["status"], "ok");
+
+        // 读取 JSON
+        let result = protocol
+            .execute(
+                "load_json",
+                json!({
+                    "key": "device_config"
+                }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result["found"], true);
+        assert_eq!(result["value"]["name"], "测试设备");
+        assert_eq!(result["value"]["settings"]["brightness"], 80);
+
+        // 读取不存在的 key
+        let result = protocol
+            .execute(
+                "load_json",
+                json!({
+                    "key": "nonexistent"
+                }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result["found"], false);
+
+        // 获取所有 JSON 对象
+        let result = protocol.execute("get_all_json", json!({})).await.unwrap();
+        assert_eq!(result["count"], 1);
+
+        // 删除 JSON
+        let result = protocol
+            .execute(
+                "delete_json",
+                json!({
+                    "key": "device_config"
+                }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result["deleted"], true);
+
+        // 确认已删除
+        let result = protocol
+            .execute(
+                "load_json",
+                json!({
+                    "key": "device_config"
+                }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result["found"], false);
+    }
+
+    #[tokio::test]
+    async fn test_mock_json_store_types() {
+        let mut protocol = MockProtocol::new(2);
+
+        // 存储不同 JSON 类型
+        protocol
+            .execute("store_json", json!({ "key": "str", "value": "hello" }))
+            .await
+            .unwrap();
+        protocol
+            .execute("store_json", json!({ "key": "num", "value": 3.14 }))
+            .await
+            .unwrap();
+        protocol
+            .execute("store_json", json!({ "key": "bool", "value": true }))
+            .await
+            .unwrap();
+        protocol
+            .execute("store_json", json!({ "key": "arr", "value": [1, 2, 3] }))
+            .await
+            .unwrap();
+        protocol
+            .execute("store_json", json!({ "key": "null_val", "value": null }))
+            .await
+            .unwrap();
+
+        let result = protocol.execute("get_all_json", json!({})).await.unwrap();
+        assert_eq!(result["count"], 5);
+
+        // 清空
+        protocol.execute("clear_json", json!({})).await.unwrap();
+        let result = protocol.execute("get_all_json", json!({})).await.unwrap();
+        assert_eq!(result["count"], 0);
     }
 }
