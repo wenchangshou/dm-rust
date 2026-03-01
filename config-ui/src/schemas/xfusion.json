@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "xFusion Config",
+  "type": "object",
+  "properties": {
+    "broadcast_addr": {
+      "type": "string",
+      "default": "255.255.255.255"
+    },
+    "wol_port": {
+      "type": "integer",
+      "default": 9
+    },
+    "shutdown_port": {
+      "type": "integer",
+      "default": 22
+    },
+    "shutdown_user": {
+      "type": "string"
+    },
+    "shutdown_password": {
+      "type": "string"
+    },
+    "mac": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "mac"
+  ]
+}

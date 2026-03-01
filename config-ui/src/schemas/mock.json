@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mock Protocol Config",
+  "type": "object",
+  "properties": {
+    "initial_state": {
+      "type": "integer",
+      "default": 0
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}

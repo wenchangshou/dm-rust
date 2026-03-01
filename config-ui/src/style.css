@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+:root {
+  --border: #dbe4f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #b91c1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  color: var(--text-primary);
+  background: #f8fafc;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+.btn {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  color: #f8fafc;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.04);
+}
+
+.btn-light {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: var(--border);
+}
+
+.btn-light:hover {
+  background: #f8fafc;
+}
+
+.btn-danger {
+  color: var(--danger-text);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+.btn-danger:hover {
+  filter: brightness(0.98);
+}

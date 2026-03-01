@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Xinke Q1 Config",
+  "type": "object",
+  "properties": {
+    "addr": {
+      "type": "string"
+    },
+    "port": {
+      "type": "integer",
+      "default": 5000
+    }
+  },
+  "required": [
+    "addr"
+  ]
+}
