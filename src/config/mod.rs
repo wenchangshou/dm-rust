@@ -249,6 +249,8 @@ pub enum StatuteType {
     YkVap,
     #[serde(rename = "xFusion")]
     XFusion,
+    #[serde(rename = "tpris-pdu")]
+    TprisPdu,
 }
 
 /// 节点配置
