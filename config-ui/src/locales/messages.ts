@@ -123,6 +123,14 @@ export const messages: Record<LocaleCode, Messages> = {
       confirmDelete: '确认删除节点 “{{name}}” 吗？',
       keywordPlaceholder: '搜索节点别名 / 全局 ID / 通道 ID',
       coverage: '覆盖通道',
+      status: '状态',
+      on: '开',
+      off: '关',
+      readStatus: '读取状态',
+      readAll: '全部读取',
+      readFailed: '读取失败',
+      writeSuccess: '写入成功',
+      writeFailed: '写入失败',
       validation: {
         globalIdRequired: '全局 ID 必须大于 0',
         globalIdDuplicate: '全局 ID 不能重复',
@@ -160,7 +168,10 @@ export const messages: Record<LocaleCode, Messages> = {
       validation: {
         nameRequired: '场景名称不能为空',
         noNode: '当前没有可用节点，无法添加步骤'
-      }
+      },
+      execute: '执行',
+      executeSuccess: '场景 "{{name}}" 执行成功',
+      executeFailed: '场景 "{{name}}" 执行失败'
     }
   },
   'en-US': {
@@ -280,6 +291,14 @@ export const messages: Record<LocaleCode, Messages> = {
       confirmDelete: 'Delete node "{{name}}"?',
       keywordPlaceholder: 'Search alias / global ID / channel ID',
       coverage: 'Channel Coverage',
+      status: 'Status',
+      on: 'ON',
+      off: 'OFF',
+      readStatus: 'Read',
+      readAll: 'Read All',
+      readFailed: 'Read failed',
+      writeSuccess: 'Write succeeded',
+      writeFailed: 'Write failed',
       validation: {
         globalIdRequired: 'Global ID must be greater than 0',
         globalIdDuplicate: 'Global ID must be unique',
@@ -317,7 +336,10 @@ export const messages: Record<LocaleCode, Messages> = {
       validation: {
         nameRequired: 'Scene name is required',
         noNode: 'No node available for steps'
-      }
+      },
+      execute: 'Execute',
+      executeSuccess: 'Scene "{{name}}" executed',
+      executeFailed: 'Scene "{{name}}" execution failed'
     }
   }
 }

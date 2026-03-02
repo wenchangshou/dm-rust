@@ -10,7 +10,7 @@ use crate::protocols::{
     ComputerControlProtocol, CustomProtocol, HsPowerSequencerProtocol, MockProtocol,
     ModbusProtocol, ModbusSlaveProtocol, NovastarProtocol, PjlinkProtocol, Protocol,
     QnSmartPlcProtocol, ScreenNjlgPlcProtocol, Splicer3dProtocol, TprisPduProtocol,
-    XFusionProtocol, XinkeQ1Protocol, YkVapProtocol,
+    Wdy8enProtocol, XFusionProtocol, XinkeQ1Protocol, YkVapProtocol,
 };
 use crate::utils::{DeviceError, Result};
 
@@ -125,6 +125,8 @@ impl ChannelManager {
             StatuteType::XFusion => XFusionProtocol::from_config(config.channel_id, &params)?,
 
             StatuteType::TprisPdu => TprisPduProtocol::from_config(config.channel_id, &params)?,
+
+            StatuteType::Wdy8en => Wdy8enProtocol::from_config(config.channel_id, &params)?,
 
             _ => {
                 return Err(DeviceError::ProtocolError(format!(

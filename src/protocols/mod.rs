@@ -92,6 +92,7 @@ pub mod storage;
 pub mod tpris_pdu;
 pub mod xfusion;
 pub mod xinke_q1;
+pub mod wdy_8en;
 pub mod yk_vap;
 
 pub use computer_control::ComputerControlProtocol;
@@ -106,6 +107,7 @@ pub use qn_smart_plc::QnSmartPlcProtocol;
 pub use screen_njlg_plc::ScreenNjlgPlcProtocol;
 pub use splicer_3d::Splicer3dProtocol;
 pub use tpris_pdu::TprisPduProtocol;
+pub use wdy_8en::Wdy8enProtocol;
 pub use xfusion::XFusionProtocol;
 pub use xinke_q1::XinkeQ1Protocol;
 pub use yk_vap::YkVapProtocol;

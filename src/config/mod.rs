@@ -251,6 +251,8 @@ pub enum StatuteType {
     XFusion,
     #[serde(rename = "tpris-pdu")]
     TprisPdu,
+    #[serde(rename = "wdy-8en")]
+    Wdy8en,
 }
 
 /// 节点配置

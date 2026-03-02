@@ -1,0 +1,160 @@
+{
+    "web_server": {
+        "port": 18080
+    },
+    "channels": [
+        {
+            "enable": true,
+            "channel_id": 1,
+            "statute": "wdy-8en",
+            "description": "WDY-8EN 8路电源时序器",
+            "arguments": {
+                "addr": "172.168.1.246",
+                "port": 1200,
+                "device_id": 0
+            }
+        }
+    ],
+    "nodes": [
+        {
+            "global_id": 1,
+            "channel_id": 1,
+            "id": 1,
+            "alias": "CH1"
+        },
+        {
+            "global_id": 2,
+            "channel_id": 1,
+            "id": 2,
+            "alias": "CH2"
+        },
+        {
+            "global_id": 3,
+            "channel_id": 1,
+            "id": 3,
+            "alias": "CH3"
+        },
+        {
+            "global_id": 4,
+            "channel_id": 1,
+            "id": 4,
+            "alias": "CH4"
+        },
+        {
+            "global_id": 5,
+            "channel_id": 1,
+            "id": 5,
+            "alias": "CH5"
+        },
+        {
+            "global_id": 6,
+            "channel_id": 1,
+            "id": 6,
+            "alias": "CH6"
+        },
+        {
+            "global_id": 7,
+            "channel_id": 1,
+            "id": 7,
+            "alias": "CH7"
+        },
+        {
+            "global_id": 8,
+            "channel_id": 1,
+            "id": 8,
+            "alias": "CH8"
+        }
+    ],
+    "scenes": [
+        {
+            "name": "open_all",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 2,
+                    "value": 1,
+                    "delay": 100
+                },
+                {
+                    "id": 3,
+                    "value": 1,
+                    "delay": 200
+                },
+                {
+                    "id": 4,
+                    "value": 1,
+                    "delay": 300
+                },
+                {
+                    "id": 5,
+                    "value": 1,
+                    "delay": 400
+                },
+                {
+                    "id": 6,
+                    "value": 1,
+                    "delay": 500
+                },
+                {
+                    "id": 7,
+                    "value": 1,
+                    "delay": 600
+                },
+                {
+                    "id": 8,
+                    "value": 1,
+                    "delay": 700
+                }
+            ]
+        },
+        {
+            "name": "close_all",
+            "nodes": [
+                {
+                    "id": 1,
+                    "value": 0,
+                    "delay": 0
+                },
+                {
+                    "id": 2,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 3,
+                    "value": 0,
+                    "delay": 200
+                },
+                {
+                    "id": 4,
+                    "value": 0,
+                    "delay": 300
+                },
+                {
+                    "id": 5,
+                    "value": 0,
+                    "delay": 400
+                },
+                {
+                    "id": 6,
+                    "value": 0,
+                    "delay": 500
+                },
+                {
+                    "id": 7,
+                    "value": 0,
+                    "delay": 600
+                },
+                {
+                    "id": 8,
+                    "value": 0,
+                    "delay": 700
+                }
+            ]
+        }
+    ]
+}

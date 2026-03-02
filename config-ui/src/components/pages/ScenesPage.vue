@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from '../../composables/useI18n'
 import type { NodeItem, Scene, SceneNode, ToastType } from '../../types/config'
 import { deepClone } from '../../utils/deepClone'
 import { VueDraggableNext } from 'vue-draggable-next'
+import { executeScene } from '../../services/deviceApi'
 
 const props = defineProps<{
   scenes: Scene[]
@@ -218,6 +219,25 @@ const resetViewer = () => {
 const totalDelay = (scene: Scene) => {
   return scene.nodes.reduce((sum, node) => sum + (node.delay ?? 0), 0)
 }
+
+// --- 场景执行 ---
+const executingScenes = reactive<Record<string, boolean>>({})
+
+const doExecuteScene = async (sceneName: string) => {
+  executingScenes[sceneName] = true
+  try {
+    const result = await executeScene(sceneName)
+    if (result.state === 0) {
+      emit('notify', { message: t('scenes.executeSuccess', { name: sceneName }) })
+    } else {
+      emit('notify', { message: result.message ?? t('scenes.executeFailed', { name: sceneName }), type: 'error' })
+    }
+  } catch (e) {
+    emit('notify', { message: String(e), type: 'error' })
+  } finally {
+    executingScenes[sceneName] = false
+  }
+}
 </script>
 
 <template>
@@ -275,8 +295,13 @@ const totalDelay = (scene: Scene) => {
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('common.actions')" width="240" fixed="right">
-          <template #default="{ $index }">
+        <el-table-column :label="t('common.actions')" width="300" fixed="right">
+          <template #default="{ row, $index }">
+            <el-button
+              type="primary" link
+              :loading="executingScenes[row.name]"
+              @click="doExecuteScene(row.name)"
+            >{{ t('scenes.execute') }}</el-button>
             <el-button type="success" link @click="openViewer($index)">{{ t('scenes.viewFlow') }}</el-button>
             <el-button type="primary" link @click="openEdit($index)">{{ t('common.edit') }}</el-button>
             <el-button type="danger" link @click="remove($index)">{{ t('common.delete') }}</el-button>

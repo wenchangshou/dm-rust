@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from '../../composables/useI18n'
 import type { Channel, NodeItem, ToastType } from '../../types/config'
 import { deepClone } from '../../utils/deepClone'
+import { readNodeState, writeNodeValue } from '../../services/deviceApi'
 
 const props = defineProps<{
   nodes: NodeItem[]
@@ -55,6 +56,60 @@ const filteredNodes = computed(() => {
 })
 
 const channelCoverage = computed(() => new Set(props.nodes.map((node) => node.channel_id)).size)
+
+// --- 运行时状态 ---
+const nodeStates = reactive<Record<number, { value: number | null; loading: boolean }>>({})
+
+const getNodeState = (globalId: number) => {
+  if (!nodeStates[globalId]) {
+    nodeStates[globalId] = { value: null, loading: false }
+  }
+  return nodeStates[globalId]
+}
+
+const doReadNode = async (globalId: number) => {
+  const state = getNodeState(globalId)
+  state.loading = true
+  try {
+    const result = await readNodeState(globalId)
+    if (result.state === 0 && result.data != null) {
+      state.value = (result.data as any).value ?? result.data as any
+    } else {
+      emit('notify', { message: result.message ?? t('nodes.readFailed'), type: 'error' })
+    }
+  } catch (e) {
+    emit('notify', { message: String(e), type: 'error' })
+  } finally {
+    state.loading = false
+  }
+}
+
+const doWriteNode = async (globalId: number, value: number) => {
+  const state = getNodeState(globalId)
+  state.loading = true
+  try {
+    const result = await writeNodeValue(globalId, value)
+    if (result.state === 0) {
+      state.value = value
+      emit('notify', { message: t('nodes.writeSuccess') })
+    } else {
+      emit('notify', { message: result.message ?? t('nodes.writeFailed'), type: 'error' })
+    }
+  } catch (e) {
+    emit('notify', { message: String(e), type: 'error' })
+  } finally {
+    state.loading = false
+  }
+}
+
+const readingAll = ref(false)
+const doReadAll = async () => {
+  readingAll.value = true
+  for (const node of filteredNodes.value) {
+    await doReadNode(node.global_id)
+  }
+  readingAll.value = false
+}
 
 const resetFilters = () => {
   keyword.value = ''
@@ -226,6 +281,10 @@ const channelLabel = (channelId: number) => {
 
         <el-button @click="resetFilters">{{ t('common.reset') }}</el-button>
 
+        <el-button :loading="readingAll" @click="doReadAll">
+          {{ t('nodes.readAll') }}
+        </el-button>
+
         <el-button type="primary" class="create-btn" @click="openCreate">
           <el-icon><Plus /></el-icon>
           <span>{{ t('nodes.add') }}</span>
@@ -259,10 +318,28 @@ const channelLabel = (channelId: number) => {
 
         <el-table-column prop="id" :label="t('nodes.deviceId')" min-width="120" align="center" />
 
-        <el-table-column :label="t('common.actions')" width="180" fixed="right">
-          <template #default="{ $index }">
-            <el-button type="primary" link @click="openEdit($index)">{{ t('common.edit') }}</el-button>
-            <el-button type="danger" link @click="remove($index)">{{ t('common.delete') }}</el-button>
+        <el-table-column :label="t('nodes.status')" min-width="100" align="center">
+          <template #default="{ row }">
+            <template v-if="getNodeState(row.global_id).value != null">
+              <el-tag :type="getNodeState(row.global_id).value ? 'success' : 'info'" effect="dark" size="small">
+                {{ getNodeState(row.global_id).value ? t('nodes.on') : t('nodes.off') }}
+              </el-tag>
+            </template>
+            <span v-else style="color: var(--el-text-color-placeholder)">—</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="t('common.actions')" width="320" fixed="right">
+          <template #default="{ row, $index }">
+            <el-button
+              type="info" link size="small"
+              :loading="getNodeState(row.global_id).loading"
+              @click="doReadNode(row.global_id)"
+            >{{ t('nodes.readStatus') }}</el-button>
+            <el-button type="success" link size="small" @click="doWriteNode(row.global_id, 1)">{{ t('nodes.on') }}</el-button>
+            <el-button type="warning" link size="small" @click="doWriteNode(row.global_id, 0)">{{ t('nodes.off') }}</el-button>
+            <el-button type="primary" link size="small" @click="openEdit($index)">{{ t('common.edit') }}</el-button>
+            <el-button type="danger" link size="small" @click="remove($index)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -336,7 +413,7 @@ const channelLabel = (channelId: number) => {
 
 .toolbar-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr auto auto;
+  grid-template-columns: 1.5fr 1fr auto auto auto;
   gap: 10px;
   align-items: center;
 }
