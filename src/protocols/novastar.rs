@@ -391,7 +391,11 @@ impl Protocol for NovastarProtocol {
                     .get("use_tcp")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
-                if use_tcp { "tcp" } else { "serial" }
+                if use_tcp {
+                    "tcp"
+                } else {
+                    "serial"
+                }
             }
             Some(other) => {
                 return Err(DeviceError::ConfigError(format!(
@@ -416,10 +420,16 @@ impl Protocol for NovastarProtocol {
                     .unwrap_or(TCP_PORT as u64) as u16;
 
                 if transport == "udp" {
-                    info!("创建 Novastar UDP 协议: {}:{}, channel: {}", addr, port, channel_id);
+                    info!(
+                        "创建 Novastar UDP 协议: {}:{}, channel: {}",
+                        addr, port, channel_id
+                    );
                     Ok(Box::new(Self::new_udp(addr, port, channel_id)))
                 } else {
-                    info!("创建 Novastar TCP 协议: {}:{}, channel: {}", addr, port, channel_id);
+                    info!(
+                        "创建 Novastar TCP 协议: {}:{}, channel: {}",
+                        addr, port, channel_id
+                    );
                     Ok(Box::new(Self::new_tcp(addr, port, channel_id)))
                 }
             }
@@ -494,7 +504,10 @@ impl Protocol for NovastarProtocol {
 
         // 写入成功后通过全局缓存持久化
         crate::utils::cache::set(self.channel_id, id, value);
-        info!("Novastar channel {} node {} 缓存已更新为 {}", self.channel_id, id, value);
+        info!(
+            "Novastar channel {} node {} 缓存已更新为 {}",
+            self.channel_id, id, value
+        );
 
         Ok(())
     }

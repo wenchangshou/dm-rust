@@ -1,4 +1,5 @@
 import type { DeviceConfig } from '../types/config'
+import { logger } from '../utils/logger'
 
 interface ApiResponse<T> {
   state: number
@@ -7,11 +8,26 @@ interface ApiResponse<T> {
 }
 
 export async function fetchDeviceConfig() {
+  logger.info('configApi', 'fetch device config start', { url: '/lspcapi/device/config' })
   const response = await fetch('/lspcapi/device/config')
-  return (await response.json()) as ApiResponse<DeviceConfig>
+  const result = (await response.json()) as ApiResponse<DeviceConfig>
+  logger.info('configApi', 'fetch device config done', {
+    httpStatus: response.status,
+    state: result.state,
+    message: result.message,
+    channels: result.data?.channels?.length ?? 0,
+    nodes: result.data?.nodes?.length ?? 0,
+    scenes: result.data?.scenes?.length ?? 0
+  })
+  return result
 }
 
 export async function saveDeviceConfig(payload: DeviceConfig) {
+  logger.info('configApi', 'save device config start', {
+    channels: payload.channels.length,
+    nodes: payload.nodes.length,
+    scenes: payload.scenes.length
+  })
   const response = await fetch('/lspcapi/config/save', {
     method: 'POST',
     headers: {
@@ -20,5 +36,11 @@ export async function saveDeviceConfig(payload: DeviceConfig) {
     body: JSON.stringify(payload)
   })
 
-  return (await response.json()) as ApiResponse<null>
+  const result = (await response.json()) as ApiResponse<null>
+  logger.info('configApi', 'save device config done', {
+    httpStatus: response.status,
+    state: result.state,
+    message: result.message
+  })
+  return result
 }

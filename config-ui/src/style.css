@@ -1,14 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
 
-:root {
-  --border: #dbe4f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --danger-bg: #fef2f2;
-  --danger-border: #fecaca;
-  --danger-text: #b91c1c;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -22,60 +13,75 @@ body,
 
 body {
   font-family: 'Manrope', 'Noto Sans SC', sans-serif;
-  color: var(--text-primary);
-  background: #f8fafc;
+  background: #f2f5fb;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
 h2,
 h3,
 h4,
+h5,
 p {
   margin: 0;
 }
 
-.btn {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  min-height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 600;
+code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #eef4ff;
+  color: #1e40af;
+}
+
+.el-card {
+  border-radius: 12px;
+}
+
+.el-dialog {
+  border-radius: 14px;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  margin-right: 0;
+  padding-bottom: 14px;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid var(--el-border-color-lighter);
+  padding-top: 14px;
+}
+
+.el-table {
+  --el-table-header-bg-color: #f8fafc;
+}
+
+/* JSONEditor emits plain html controls; align with Element styles. */
+.schema-box .form-control,
+.schema-box input,
+.schema-box select,
+.schema-box textarea {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  padding: 6px 10px;
   font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.schema-box label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
-.btn-primary {
-  color: #f8fafc;
-  background: linear-gradient(90deg, #2563eb, #1d4ed8);
-}
-
-.btn-primary:hover {
-  filter: brightness(1.04);
-}
-
-.btn-light {
-  color: #0f172a;
-  background: #ffffff;
-  border-color: var(--border);
-}
-
-.btn-light:hover {
+.schema-box .well {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 8px;
   background: #f8fafc;
-}
-
-.btn-danger {
-  color: var(--danger-text);
-  background: var(--danger-bg);
-  border-color: var(--danger-border);
-}
-
-.btn-danger:hover {
-  filter: brightness(0.98);
 }

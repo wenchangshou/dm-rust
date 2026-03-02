@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import enUs from 'element-plus/es/locale/lang/en'
 import AppSidebar from './components/base/AppSidebar.vue'
-import AppToast from './components/base/AppToast.vue'
 import ChannelsPage from './components/pages/ChannelsPage.vue'
 import NodesPage from './components/pages/NodesPage.vue'
 import ScenesPage from './components/pages/ScenesPage.vue'
 import { useConfigSystem } from './composables/useConfigSystem'
 import { useI18n } from './composables/useI18n'
-import { useToast } from './composables/useToast'
 import { fetchDeviceConfig, saveDeviceConfig } from './services/configApi'
 import { useSchemaRegistry } from './services/schemaRegistry'
 import type { Channel, NodeItem, PageKey, Scene, ToastType } from './types/config'
+import { logger } from './utils/logger'
 
 const activePage = ref<PageKey>('channels')
+const lastSyncText = ref('-')
 
-const { t } = useI18n()
-const { message, type, show } = useToast()
+const { t, locale } = useI18n()
 
 const {
   channels,
@@ -29,64 +31,133 @@ const {
   toPayload
 } = useConfigSystem()
 
-const { schemas, protocolList } = useSchemaRegistry()
+const {
+  protocolList,
+  initProtocols,
+  ensureSchema,
+  resolveSchema
+} = useSchemaRegistry()
+
+const elementLocale = computed(() => (locale.value === 'en-US' ? enUs : zhCn))
+
+const pageMeta = computed(() => {
+  if (activePage.value === 'channels') {
+    return { title: t('sidebar.channels'), desc: t('channels.desc') }
+  }
+  if (activePage.value === 'nodes') {
+    return { title: t('sidebar.nodes'), desc: t('nodes.desc') }
+  }
+  return { title: t('sidebar.scenes'), desc: t('scenes.desc') }
+})
+
+const refreshLastSync = () => {
+  lastSyncText.value = new Date().toLocaleString(locale.value)
+}
+
+const notify = (message: string, type: ToastType = 'success') => {
+  ElMessage({
+    type: type === 'error' ? 'error' : 'success',
+    message,
+    duration: 3200,
+    showClose: true
+  })
+}
 
 const onNotify = (payload: { message: string; type?: ToastType }) => {
-  show(payload.message, payload.type ?? 'success')
+  notify(payload.message, payload.type ?? 'success')
 }
 
 const normalizePort = () => {
   const port = Number(webServer.value.port)
   if (!Number.isFinite(port) || port < 1 || port > 65535) {
     webServer.value.port = 18080
-    show(t('toast.validationError', { message: `${t('overview.webPort')} 1-65535` }), 'error')
+    notify(t('toast.validationError', { message: `${t('overview.webPort')} 1-65535` }), 'error')
     return
   }
 
   webServer.value.port = Math.round(port)
 }
 
+const preloadChannelSchemas = async () => {
+  const statutes = [...new Set(channels.value.map((channel) => channel.statute).filter(Boolean))]
+  logger.info('app', 'preload channel schemas start', { statutes })
+
+  for (const statute of statutes) {
+    try {
+      await ensureSchema(statute)
+    } catch {
+      logger.warn('app', 'preload channel schema failed', { statute })
+    }
+  }
+  logger.info('app', 'preload channel schemas done', { count: statutes.length })
+}
+
 const loadConfig = async () => {
   loading.value = true
+  logger.info('app', 'load config start')
 
   try {
     const response = await fetchDeviceConfig()
     if (response.state === 0 && response.data) {
       setConfig(response.data)
-      show(t('toast.loaded'), 'success')
+      logger.info('app', 'load config apply success', {
+        channels: channels.value.length,
+        nodes: nodes.value.length,
+        scenes: scenes.value.length
+      })
+      await preloadChannelSchemas()
+      refreshLastSync()
+      notify(t('toast.loaded'))
       return
     }
 
-    show(t('toast.loadFailed', { message: response.message || '-' }), 'error')
+    logger.warn('app', 'load config failed by state', {
+      state: response.state,
+      message: response.message
+    })
+    notify(t('toast.loadFailed', { message: response.message || '-' }), 'error')
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error)
-    show(t('toast.connectionError', { message: text }), 'error')
+    logger.error('app', 'load config exception', { error: text })
+    notify(t('toast.connectionError', { message: text }), 'error')
   } finally {
     loading.value = false
+    logger.info('app', 'load config end')
   }
 }
 
 const saveConfig = async () => {
   saving.value = true
+  logger.info('app', 'save config start')
 
   try {
     const response = await saveDeviceConfig(toPayload())
     if (response.state === 0) {
-      show(t('toast.saved'), 'success')
+      logger.info('app', 'save config success')
+      refreshLastSync()
+      notify(t('toast.saved'))
       return
     }
 
-    show(t('toast.saveFailed', { message: response.message || '-' }), 'error')
+    logger.warn('app', 'save config failed by state', {
+      state: response.state,
+      message: response.message
+    })
+    notify(t('toast.saveFailed', { message: response.message || '-' }), 'error')
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error)
-    show(t('toast.connectionError', { message: text }), 'error')
+    logger.error('app', 'save config exception', { error: text })
+    notify(t('toast.connectionError', { message: text }), 'error')
   } finally {
     saving.value = false
+    logger.info('app', 'save config end')
   }
 }
 
 const updateChannels = (value: Channel[]) => {
+  logger.info('app', 'update channels', { count: value.length })
   channels.value = value
+  void preloadChannelSchemas()
 }
 
 const updateNodes = (value: NodeItem[]) => {
@@ -97,193 +168,265 @@ const updateScenes = (value: Scene[]) => {
   scenes.value = value
 }
 
-onMounted(() => {
-  void loadConfig()
+onMounted(async () => {
+  logger.info('app', 'mounted')
+  try {
+    await initProtocols()
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error)
+    logger.error('app', 'init protocols exception', { error: text })
+    notify(t('toast.connectionError', { message: text }), 'error')
+  }
+
+  await loadConfig()
 })
 </script>
 
 <template>
-  <div class="app-shell">
-    <AppToast :message="message" :type="type" />
+  <el-config-provider :locale="elementLocale">
+    <div class="app-shell">
+      <el-container class="layout-container">
+        <el-aside class="sidebar-wrapper">
+          <AppSidebar
+            :active-page="activePage"
+            :channels-count="stats.channels"
+            :nodes-count="stats.nodes"
+            :scenes-count="stats.scenes"
+            :saving="saving"
+            :loading="loading"
+            @change-page="activePage = $event"
+            @save="saveConfig"
+            @reload="loadConfig"
+          />
+        </el-aside>
 
-    <AppSidebar
-      :active-page="activePage"
-      :channels-count="stats.channels"
-      :nodes-count="stats.nodes"
-      :scenes-count="stats.scenes"
-      :saving="saving"
-      :loading="loading"
-      @change-page="activePage = $event"
-      @save="saveConfig"
-      @reload="loadConfig"
-    />
+        <el-container>
+          <el-header class="top-wrapper">
+            <el-card shadow="never" class="top-card">
+              <div class="top-row">
+                <div class="title-block">
+                  <h1>{{ t('app.title') }}</h1>
+                  <p>{{ t('app.subtitle') }}</p>
+                </div>
 
-    <main class="main-content">
-      <section class="overview-card">
-        <div>
-          <h2>{{ t('overview.title') }}</h2>
-          <p>{{ t('overview.desc') }}</p>
-        </div>
-        <div class="overview-right">
-          <label>
-            <span>{{ t('overview.webPort') }}</span>
-            <input v-model.number="webServer.port" type="number" min="1" max="65535" @change="normalizePort" />
-          </label>
-          <div class="stats-grid">
-            <article>
-              <strong>{{ stats.channels }}</strong>
-              <span>{{ t('overview.channels') }}</span>
-            </article>
-            <article>
-              <strong>{{ stats.nodes }}</strong>
-              <span>{{ t('overview.nodes') }}</span>
-            </article>
-            <article>
-              <strong>{{ stats.scenes }}</strong>
-              <span>{{ t('overview.scenes') }}</span>
-            </article>
-          </div>
-        </div>
-      </section>
+                <div class="top-actions">
+                  <el-tag effect="light" type="success">{{ t('common.online') }}</el-tag>
+                  <el-tag effect="plain">{{ t('app.lastSync', { time: lastSyncText }) }}</el-tag>
+                  <el-button :loading="loading" @click="loadConfig">{{ t('common.reload') }}</el-button>
+                  <el-button type="primary" :loading="saving" @click="saveConfig">{{ t('common.save') }}</el-button>
+                </div>
+              </div>
 
-      <ChannelsPage
-        v-if="activePage === 'channels'"
-        :channels="channels"
-        :protocol-list="protocolList"
-        :schemas="schemas"
-        @update:channels="updateChannels"
-        @notify="onNotify"
-      />
+              <div class="module-row">
+                <el-breadcrumb separator=">">
+                  <el-breadcrumb-item>{{ t('app.title') }}</el-breadcrumb-item>
+                  <el-breadcrumb-item>{{ t('app.currentModule') }}</el-breadcrumb-item>
+                  <el-breadcrumb-item>{{ pageMeta.title }}</el-breadcrumb-item>
+                </el-breadcrumb>
+              </div>
+            </el-card>
 
-      <NodesPage
-        v-if="activePage === 'nodes'"
-        :nodes="nodes"
-        :channels="channels"
-        @update:nodes="updateNodes"
-        @notify="onNotify"
-      />
+            <div class="kpi-grid">
+              <el-card shadow="never" class="kpi-card">
+                <el-statistic :value="stats.channels" :title="t('overview.channels')" />
+              </el-card>
+              <el-card shadow="never" class="kpi-card">
+                <el-statistic :value="stats.nodes" :title="t('overview.nodes')" />
+              </el-card>
+              <el-card shadow="never" class="kpi-card">
+                <el-statistic :value="stats.scenes" :title="t('overview.scenes')" />
+              </el-card>
+              <el-card shadow="never" class="kpi-card protocol-card">
+                <el-statistic :value="protocolList.length" :title="t('overview.protocols')" />
+                <div class="port-editor">
+                  <span>{{ t('overview.webPort') }}</span>
+                  <el-input-number
+                    v-model="webServer.port"
+                    :min="1"
+                    :max="65535"
+                    controls-position="right"
+                    @change="normalizePort"
+                  />
+                </div>
+              </el-card>
+            </div>
+          </el-header>
 
-      <ScenesPage
-        v-if="activePage === 'scenes'"
-        :scenes="scenes"
-        :nodes="nodes"
-        @update:scenes="updateScenes"
-        @notify="onNotify"
-      />
-    </main>
-  </div>
+          <el-main class="main-content">
+            <section class="page-panel">
+              <header class="page-panel-header">
+                <h2>{{ pageMeta.title }}</h2>
+                <p>{{ pageMeta.desc }}</p>
+              </header>
+
+              <ChannelsPage
+                v-if="activePage === 'channels'"
+                :channels="channels"
+                :protocol-list="protocolList"
+                :ensure-schema="ensureSchema"
+                :resolve-schema="resolveSchema"
+                @update:channels="updateChannels"
+                @notify="onNotify"
+              />
+
+              <NodesPage
+                v-if="activePage === 'nodes'"
+                :nodes="nodes"
+                :channels="channels"
+                @update:nodes="updateNodes"
+                @notify="onNotify"
+              />
+
+              <ScenesPage
+                v-if="activePage === 'scenes'"
+                :scenes="scenes"
+                :nodes="nodes"
+                @update:scenes="updateScenes"
+                @notify="onNotify"
+              />
+            </section>
+          </el-main>
+        </el-container>
+      </el-container>
+    </div>
+  </el-config-provider>
 </template>
 
 <style scoped>
 .app-shell {
   min-height: 100vh;
-  display: flex;
-  align-items: stretch;
-  background: radial-gradient(circle at 14% 10%, #eff6ff, #eef2ff 36%, #f8fafc 65%);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(37, 99, 235, 0.08), transparent 35%),
+    radial-gradient(circle at 85% 4%, rgba(14, 165, 233, 0.12), transparent 32%),
+    #f2f5fb;
 }
 
-.main-content {
-  flex: 1;
-  min-width: 0;
-  padding: 20px;
+.layout-container {
+  min-height: 100vh;
+}
+
+.sidebar-wrapper {
+  width: 300px;
+}
+
+.top-wrapper {
+  height: auto;
+  padding: 14px 16px 0;
   display: grid;
-  align-content: start;
-  gap: 18px;
+  gap: 12px;
 }
 
-.overview-card {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
+.top-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.top-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 16px;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.overview-card h2 {
+.title-block h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.overview-card p {
-  margin: 8px 0 0;
-  color: var(--text-secondary);
-  font-size: 14px;
+.title-block p {
+  margin-top: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 
-.overview-right {
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.module-row {
+  margin-top: 12px;
+}
+
+.kpi-grid {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.overview-right label {
+.kpi-card {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.protocol-card {
+  display: grid;
+  gap: 8px;
+}
+
+.port-editor {
   display: grid;
   gap: 6px;
 }
 
-.overview-right span {
-  color: var(--text-secondary);
+.port-editor span {
   font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
-.overview-right input {
-  width: 180px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0 10px;
+.main-content {
+  padding: 16px;
 }
 
-.overview-right input:focus {
-  outline: none;
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
-}
-
-.stats-grid {
+.page-panel {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 14px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(80px, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
-.stats-grid article {
-  border: 1px solid #dbeafe;
-  border-radius: 10px;
-  background: #f8fbff;
-  min-height: 58px;
-  display: grid;
-  place-items: center;
-  gap: 2px;
+.page-panel-header h2 {
+  margin: 0;
+  font-size: 18px;
 }
 
-.stats-grid strong {
-  font-size: 20px;
-  color: #1e3a8a;
+.page-panel-header p {
+  margin-top: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 
-.stats-grid span {
-  color: #334155;
-  font-size: 12px;
+@media (max-width: 1200px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
-  .app-shell {
+  .layout-container {
     flex-direction: column;
   }
 
-  .overview-card {
+  .sidebar-wrapper {
+    width: 100%;
+  }
+
+  .top-row {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
-  .overview-right {
-    width: 100%;
+  .top-actions {
+    justify-content: flex-start;
   }
 
-  .overview-right input {
-    width: 100%;
+  .kpi-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

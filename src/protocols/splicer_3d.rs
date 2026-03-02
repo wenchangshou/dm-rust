@@ -30,13 +30,19 @@ const DEFAULT_GROUP: u32 = 1;
 /// 通信方式枚举
 #[derive(Debug, Clone)]
 enum ConnectionType {
-    Tcp { addr: String, port: u16 },
+    Tcp {
+        addr: String,
+        port: u16,
+    },
     Udp {
         addr: String,
         port: u16,
         local_port: Option<u16>,
     },
-    Serial { port_name: String, baud_rate: u32 },
+    Serial {
+        port_name: String,
+        baud_rate: u32,
+    },
 }
 
 /// 3D拼接处理器协议

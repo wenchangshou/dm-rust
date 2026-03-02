@@ -1,5 +1,5 @@
-use crate::protocols::Protocol;
 use crate::protocols::storage::get_or_init_storage;
+use crate::protocols::Protocol;
 use crate::utils::{DeviceError, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -56,7 +56,6 @@ pub struct XFusionProtocol {
     token_cache: Arc<RwLock<HashMap<u32, String>>>,
 }
 
-
 impl XFusionProtocol {
     /// 获取 Token 的存储键
     fn token_storage_key(node_id: u32) -> String {
@@ -76,7 +75,10 @@ impl XFusionProtocol {
 
         // 从持久化存储获取
         let storage = get_or_init_storage().await;
-        if let Some(token) = storage.get_string(self.channel_id, &Self::token_storage_key(node_id)).await {
+        if let Some(token) = storage
+            .get_string(self.channel_id, &Self::token_storage_key(node_id))
+            .await
+        {
             // 同步到内存缓存
             let mut cache = self.token_cache.write().await;
             cache.insert(node_id, token.clone());
@@ -100,11 +102,13 @@ impl XFusionProtocol {
 
         // 保存到持久化存储
         let storage = get_or_init_storage().await;
-        storage.set(
-            self.channel_id,
-            &Self::token_storage_key(node_id),
-            serde_json::json!(token),
-        ).await;
+        storage
+            .set(
+                self.channel_id,
+                &Self::token_storage_key(node_id),
+                serde_json::json!(token),
+            )
+            .await;
 
         debug!(
             "通道 {} [xFusion]: 节点 ID:{} Token 已缓存到内存和持久化存储",
@@ -122,14 +126,15 @@ impl XFusionProtocol {
 
         // 从持久化存储删除
         let storage = get_or_init_storage().await;
-        storage.remove(self.channel_id, &Self::token_storage_key(node_id)).await;
+        storage
+            .remove(self.channel_id, &Self::token_storage_key(node_id))
+            .await;
 
         debug!(
             "通道 {} [xFusion]: 节点 ID:{} Token 已失效，已从缓存中移除",
             self.channel_id, node_id
         );
     }
-
 
     /// 创建新的会话 Token
     async fn create_session_token(&self, node: &XFusionNode) -> Result<String> {
@@ -165,7 +170,10 @@ impl XFusionProtocol {
             .map_err(|e| {
                 error!(
                     "通道 {} [xFusion]: 节点 ID:{} 获取会话失败: {}, 耗时: {:?}",
-                    self.channel_id, node.id, e, start_time.elapsed()
+                    self.channel_id,
+                    node.id,
+                    e,
+                    start_time.elapsed()
                 );
                 DeviceError::ProtocolError(format!("iBMC 会话请求失败: {}", e))
             })?;
@@ -297,7 +305,10 @@ impl XFusionProtocol {
 
             debug!(
                 "通道 {} [xFusion]: 节点 ID:{} 电源操作 URL: {}, 尝试次数: {}",
-                self.channel_id, node.id, reset_url, attempt + 1
+                self.channel_id,
+                node.id,
+                reset_url,
+                attempt + 1
             );
 
             let start_time = std::time::Instant::now();
@@ -312,17 +323,20 @@ impl XFusionProtocol {
                 .map_err(|e| {
                     error!(
                         "通道 {} [xFusion]: 节点 ID:{} 电源操作请求失败: {}, 耗时: {:?}",
-                        self.channel_id, node.id, e, start_time.elapsed()
+                        self.channel_id,
+                        node.id,
+                        e,
+                        start_time.elapsed()
                     );
                     DeviceError::ProtocolError(format!("iBMC 电源操作请求失败: {}", e))
                 })?;
 
             let elapsed = start_time.elapsed();
             let status = response.status();
-            
+
             // 先获取响应文本
             let response_text = response.text().await.unwrap_or_default();
-            
+
             debug!(
                 "通道 {} [xFusion]: 节点 ID:{} 电源操作响应状态: {}, 耗时: {:?}",
                 self.channel_id, node.id, status, elapsed
@@ -358,7 +372,6 @@ impl XFusionProtocol {
 
         Err(DeviceError::ProtocolError("电源操作重试次数已用尽".into()))
     }
-
 
     /// 开机 (使用 iBMC Redfish API)
     async fn power_on(&self, node: &XFusionNode) -> Result<()> {
@@ -461,7 +474,10 @@ impl XFusionProtocol {
                 let is_pong = resp.eq_ignore_ascii_case("pong");
                 debug!(
                     "通道 {} [xFusion]: 节点 ID:{} ping 响应: '{}', 结果: {}",
-                    self.channel_id, node.id, resp, if is_pong { "在线" } else { "无效响应" }
+                    self.channel_id,
+                    node.id,
+                    resp,
+                    if is_pong { "在线" } else { "无效响应" }
                 );
                 return is_pong;
             }
@@ -502,10 +518,7 @@ impl XFusionProtocol {
 
     /// 通过 iBMC Redfish API 获取电源状态
     async fn get_power_state(&self, node: &XFusionNode) -> Result<String> {
-        let system_url = format!(
-            "{}/redfish/v1/Systems/{}",
-            node.ibmc_url, node.system_id
-        );
+        let system_url = format!("{}/redfish/v1/Systems/{}", node.ibmc_url, node.system_id);
 
         // 尝试使用缓存的 Token，如果失败则刷新后重试
         for attempt in 0..2 {
@@ -523,7 +536,10 @@ impl XFusionProtocol {
 
             debug!(
                 "通道 {} [xFusion]: 节点 ID:{} 查询电源状态, URL: {}, 尝试次数: {}",
-                self.channel_id, node.id, system_url, attempt + 1
+                self.channel_id,
+                node.id,
+                system_url,
+                attempt + 1
             );
 
             let start_time = std::time::Instant::now();
@@ -537,14 +553,17 @@ impl XFusionProtocol {
                 .map_err(|e| {
                     error!(
                         "通道 {} [xFusion]: 节点 ID:{} 查询电源状态失败: {}, 耗时: {:?}",
-                        self.channel_id, node.id, e, start_time.elapsed()
+                        self.channel_id,
+                        node.id,
+                        e,
+                        start_time.elapsed()
                     );
                     DeviceError::ProtocolError(format!("iBMC 查询电源状态失败: {}", e))
                 })?;
 
             let elapsed = start_time.elapsed();
             let status = response.status();
-            
+
             // 先获取响应文本
             let response_text = response.text().await.unwrap_or_default();
 
@@ -601,10 +620,10 @@ impl XFusionProtocol {
             return Ok(power_state);
         }
 
-        Err(DeviceError::ProtocolError("查询电源状态重试次数已用尽".into()))
+        Err(DeviceError::ProtocolError(
+            "查询电源状态重试次数已用尽".into(),
+        ))
     }
-
-
 
     /// 检查节点是否开机 (优先使用 iBMC API)
     async fn is_node_powered_on(&self, node: &XFusionNode) -> bool {
@@ -729,9 +748,10 @@ impl XFusionProtocol {
 #[async_trait]
 impl Protocol for XFusionProtocol {
     fn from_config(channel_id: u32, params: &HashMap<String, Value>) -> Result<Box<dyn Protocol>> {
-        let node_list_json = params.get("nodes").or_else(|| params.get("mac_address")).ok_or_else(|| {
-            DeviceError::ConfigError("xFusion 缺少 nodes 参数".into())
-        })?;
+        let node_list_json = params
+            .get("nodes")
+            .or_else(|| params.get("mac_address"))
+            .ok_or_else(|| DeviceError::ConfigError("xFusion 缺少 nodes 参数".into()))?;
 
         let config_items: Vec<XFusionConfigItem> =
             serde_json::from_value(node_list_json.clone())
@@ -799,7 +819,8 @@ impl Protocol for XFusionProtocol {
 
         info!(
             "通道 {} [Config]: 初始化 XFusionProtocol, 包含 {} 个节点",
-            channel_id, nodes.len()
+            channel_id,
+            nodes.len()
         );
         for node in &nodes {
             debug!(
@@ -817,7 +838,6 @@ impl Protocol for XFusionProtocol {
             http_client,
             token_cache: Arc::new(RwLock::new(HashMap::new())),
         }))
-
     }
 
     async fn execute(&mut self, command: &str, params: Value) -> Result<Value> {
@@ -964,7 +984,9 @@ impl Protocol for XFusionProtocol {
                 })?;
 
                 self.power_action(node, reset_type).await?;
-                Ok(serde_json::json!({ "status": "ok", "action": "reset", "resetType": reset_type }))
+                Ok(
+                    serde_json::json!({ "status": "ok", "action": "reset", "resetType": reset_type }),
+                )
             }
             "heartbeat" => {
                 let mac = params.get("mac").and_then(|v| v.as_str()).ok_or_else(|| {
@@ -993,7 +1015,10 @@ impl Protocol for XFusionProtocol {
 
                 // 通过 iBMC API 获取电源状态
                 let power_state = self.get_power_state(node).await.ok();
-                let is_powered_on = power_state.as_ref().map(|s| s.eq_ignore_ascii_case("On")).unwrap_or(false);
+                let is_powered_on = power_state
+                    .as_ref()
+                    .map(|s| s.eq_ignore_ascii_case("On"))
+                    .unwrap_or(false);
 
                 let (volume, mute, _) = self.get_audio_status(node).await;
                 Ok(serde_json::json!({
@@ -1009,7 +1034,9 @@ impl Protocol for XFusionProtocol {
                     .get("id")
                     .and_then(|v| v.as_u64())
                     .map(|v| v as u32)
-                    .ok_or_else(|| DeviceError::ProtocolError("getPowerState 命令需要 id 参数".into()))?;
+                    .ok_or_else(|| {
+                        DeviceError::ProtocolError("getPowerState 命令需要 id 参数".into())
+                    })?;
 
                 let node = self.find_node_by_id(id).ok_or_else(|| {
                     DeviceError::ProtocolError(format!("未找到 ID 为 {} 的节点", id))
@@ -1025,10 +1052,7 @@ impl Protocol for XFusionProtocol {
             "getAllStatus" => self.get_status().await,
 
             _ => {
-                warn!(
-                    "通道 {} [Execute]: 未知命令: {}",
-                    self.channel_id, command
-                );
+                warn!("通道 {} [Execute]: 未知命令: {}", self.channel_id, command);
                 Err(DeviceError::ProtocolError(format!("未知命令: {}", command)))
             }
         }
@@ -1037,7 +1061,8 @@ impl Protocol for XFusionProtocol {
     async fn get_status(&self) -> Result<Value> {
         debug!(
             "通道 {} [xFusion]: 获取所有节点状态, 共 {} 个节点",
-            self.channel_id, self.nodes.len()
+            self.channel_id,
+            self.nodes.len()
         );
         let mut status_list = Vec::new();
 
@@ -1060,7 +1085,8 @@ impl Protocol for XFusionProtocol {
 
         info!(
             "通道 {} [xFusion]: 获取状态完成, {} 个节点",
-            self.channel_id, status_list.len()
+            self.channel_id,
+            status_list.len()
         );
 
         Ok(serde_json::json!({
@@ -1072,16 +1098,24 @@ impl Protocol for XFusionProtocol {
     async fn write(&mut self, id: u32, value: i32) -> Result<()> {
         info!(
             "通道 {} [Write]: 节点 ID:{}, 值: {} ({})",
-            self.channel_id, id, value, if value == 1 { "开机" } else if value == 0 { "关机" } else { "未知" }
+            self.channel_id,
+            id,
+            value,
+            if value == 1 {
+                "开机"
+            } else if value == 0 {
+                "关机"
+            } else {
+                "未知"
+            }
         );
-        let node = self
-            .nodes
-            .iter()
-            .find(|c| c.id == id)
-            .ok_or_else(|| {
-                warn!("通道 {} [Write]: 未找到 ID 为 {} 的节点", self.channel_id, id);
-                DeviceError::ProtocolError(format!("未找到 ID 为 {} 的节点", id))
-            })?;
+        let node = self.nodes.iter().find(|c| c.id == id).ok_or_else(|| {
+            warn!(
+                "通道 {} [Write]: 未找到 ID 为 {} 的节点",
+                self.channel_id, id
+            );
+            DeviceError::ProtocolError(format!("未找到 ID 为 {} 的节点", id))
+        })?;
 
         match value {
             1 => {
@@ -1093,7 +1127,10 @@ impl Protocol for XFusionProtocol {
                 self.power_off(node).await
             }
             v => {
-                warn!("通道 {} [Write]: 节点 ID:{} 不支持的值 {}", self.channel_id, id, v);
+                warn!(
+                    "通道 {} [Write]: 节点 ID:{} 不支持的值 {}",
+                    self.channel_id, id, v
+                );
                 Err(DeviceError::ProtocolError(format!(
                     "xFusion write 仅支持 0(关机) 或 1(开机)，收到: {}",
                     v
@@ -1104,21 +1141,23 @@ impl Protocol for XFusionProtocol {
 
     async fn read(&self, id: u32) -> Result<i32> {
         debug!("通道 {} [Read]: 读取节点 ID:{} 状态", self.channel_id, id);
-        let node = self
-            .nodes
-            .iter()
-            .find(|c| c.id == id)
-            .ok_or_else(|| {
-                warn!("通道 {} [Read]: 未找到 ID 为 {} 的节点", self.channel_id, id);
-                DeviceError::ProtocolError(format!("未找到 ID 为 {} 的节点", id))
-            })?;
+        let node = self.nodes.iter().find(|c| c.id == id).ok_or_else(|| {
+            warn!(
+                "通道 {} [Read]: 未找到 ID 为 {} 的节点",
+                self.channel_id, id
+            );
+            DeviceError::ProtocolError(format!("未找到 ID 为 {} 的节点", id))
+        })?;
 
         // 通过 iBMC API 获取电源状态
         let is_powered_on = self.is_node_powered_on(node).await;
 
         info!(
             "通道 {} [Read]: 节点 ID:{} 电源状态: {} ({})",
-            self.channel_id, id, if is_powered_on { "开机" } else { "关机" }, if is_powered_on { 1 } else { 0 }
+            self.channel_id,
+            id,
+            if is_powered_on { "开机" } else { "关机" },
+            if is_powered_on { 1 } else { 0 }
         );
         Ok(if is_powered_on { 1 } else { 0 })
     }

@@ -3,7 +3,7 @@
 //! 提供服务安装、卸载、启动、停止、重启功能
 
 #[cfg(windows)]
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 #[cfg(windows)]
 use std::ffi::OsString;
 #[cfg(windows)]
@@ -12,9 +12,8 @@ use std::time::Duration;
 use windows_service::{
     define_windows_service,
     service::{
-        ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl, 
-        ServiceExitCode, ServiceInfo, ServiceStartType, ServiceState, ServiceStatus,
-        ServiceType,
+        ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl, ServiceExitCode,
+        ServiceInfo, ServiceStartType, ServiceState, ServiceStatus, ServiceType,
     },
     service_control_handler::{self, ServiceControlHandlerResult},
     service_dispatcher,
@@ -114,7 +113,7 @@ fn run_service() -> Result<()> {
         std::thread::sleep(Duration::from_secs(5));
         std::process::exit(0);
     });
-    
+
     app_handle.join().ok();
 
     // 告诉Windows服务已停止
@@ -135,10 +134,10 @@ fn run_service() -> Result<()> {
 #[cfg(windows)]
 async fn run_application() -> Result<()> {
     use crate::config;
-    use crate::device;
     use crate::db;
-    use crate::web;
+    use crate::device;
     use crate::utils;
+    use crate::web;
     use std::fs;
 
     // 先初始化一个基本的文件日志，确保错误能被记录
@@ -146,10 +145,10 @@ async fn run_application() -> Result<()> {
         .ok()
         .and_then(|p| p.parent().map(|p| p.join("logs")))
         .unwrap_or_else(|| std::path::PathBuf::from("logs"));
-    
+
     let _ = fs::create_dir_all(&log_dir);
     let initial_log_file = log_dir.join("service-startup.log");
-    
+
     // 创建初始日志文件
     if let Ok(file) = fs::OpenOptions::new()
         .create(true)
@@ -173,7 +172,7 @@ async fn run_application() -> Result<()> {
         file: initial_log_file.to_string_lossy().to_string(),
         append: true,
     };
-    
+
     if let Err(e) = utils::logger::init_logger(Some(&basic_log_config), "info") {
         eprintln!("初始日志系统失败: {:?}", e);
     }
@@ -184,15 +183,18 @@ async fn run_application() -> Result<()> {
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()));
-    
+
     let config_paths = vec![
         "config.json".to_string(),
-        exe_dir.as_ref().map(|d| d.join("config.json").to_string_lossy().to_string()).unwrap_or_default(),
+        exe_dir
+            .as_ref()
+            .map(|d| d.join("config.json").to_string_lossy().to_string())
+            .unwrap_or_default(),
     ];
 
     let mut cfg = None;
     let mut used_path = String::new();
-    
+
     for config_path in &config_paths {
         if config_path.is_empty() {
             continue;
@@ -222,13 +224,17 @@ async fn run_application() -> Result<()> {
     // 如果配置文件中有日志配置，重新初始化日志系统
     if let Some(ref log_config) = cfg.log {
         tracing::info!("使用配置文件中的日志设置");
-        tracing::info!("日志级别: {}, 目标: {}, 文件: {}", 
-            log_config.level, log_config.target, log_config.file);
-        
+        tracing::info!(
+            "日志级别: {}, 目标: {}, 文件: {}",
+            log_config.level,
+            log_config.target,
+            log_config.file
+        );
+
         // 注意：这里不能重新初始化tracing，只记录配置信息
         // 实际的日志配置应该在服务启动前就确定
     }
-    
+
     tracing::info!("设备控制系统服务启动");
     tracing::info!("使用配置文件: {}", used_path);
 
@@ -268,7 +274,12 @@ async fn run_application() -> Result<()> {
     // 启动Web服务器
     tracing::info!("正在启动Web服务器...");
     let web_server = if let Some(db) = database {
-        web::WebServer::with_database(cfg.clone(), used_path.clone(), device_controller.clone(), db)
+        web::WebServer::with_database(
+            cfg.clone(),
+            used_path.clone(),
+            device_controller.clone(),
+            db,
+        )
     } else {
         web::WebServer::new(cfg.clone(), used_path.clone(), device_controller.clone())
     };
@@ -281,8 +292,7 @@ async fn run_application() -> Result<()> {
 /// 作为Windows服务运行（从服务控制管理器调用）
 #[cfg(windows)]
 pub fn run_as_service() -> Result<()> {
-    service_dispatcher::start(SERVICE_NAME, ffi_service_main)
-        .context("启动服务调度器失败")?;
+    service_dispatcher::start(SERVICE_NAME, ffi_service_main).context("启动服务调度器失败")?;
     Ok(())
 }
 
@@ -294,8 +304,7 @@ pub fn install_service() -> Result<()> {
         .context("无法连接到服务管理器")?;
 
     // 获取当前执行文件路径
-    let exe_path = std::env::current_exe()
-        .context("无法获取当前执行文件路径")?;
+    let exe_path = std::env::current_exe().context("无法获取当前执行文件路径")?;
 
     let service_info = ServiceInfo {
         name: OsString::from(SERVICE_NAME),
@@ -323,7 +332,11 @@ pub fn install_service() -> Result<()> {
     println!("  显示名称: {}", SERVICE_DISPLAY_NAME);
     println!("  描述: {}", SERVICE_DESCRIPTION);
     println!("  执行文件: {}", exe_path.display());
-    println!("\n提示: 使用 'sc start {}' 或 '{} -s start' 启动服务", SERVICE_NAME, std::env::current_exe().unwrap().display());
+    println!(
+        "\n提示: 使用 'sc start {}' 或 '{} -s start' 启动服务",
+        SERVICE_NAME,
+        std::env::current_exe().unwrap().display()
+    );
 
     Ok(())
 }
@@ -341,17 +354,13 @@ pub fn uninstall_service() -> Result<()> {
         .context(format!("无法打开服务 '{}'", SERVICE_NAME))?;
 
     // 检查服务状态
-    let service_status = service
-        .query_status()
-        .context("查询服务状态失败")?;
+    let service_status = service.query_status().context("查询服务状态失败")?;
 
     // 如果服务正在运行，先停止它
     if service_status.current_state != ServiceState::Stopped {
         println!("正在停止服务...");
-        service
-            .stop()
-            .context("停止服务失败")?;
-        
+        service.stop().context("停止服务失败")?;
+
         // 等待服务停止
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
@@ -385,9 +394,7 @@ pub fn start_service() -> Result<()> {
     }
 
     // 启动服务
-    service
-        .start(&[] as &[&OsString])
-        .context("启动服务失败")?;
+    service.start(&[] as &[&OsString]).context("启动服务失败")?;
 
     println!("✓ 服务启动成功: {}", SERVICE_NAME);
     println!("提示: 使用 'sc query {}' 查看服务状态", SERVICE_NAME);
@@ -427,7 +434,7 @@ pub fn stop_service() -> Result<()> {
 #[cfg(windows)]
 pub fn restart_service() -> Result<()> {
     println!("正在重启服务...");
-    
+
     // 先停止服务
     if let Err(e) = stop_service() {
         // 如果服务已经停止，忽略错误

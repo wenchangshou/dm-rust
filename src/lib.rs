@@ -96,9 +96,13 @@ pub async fn run_app(config_path: &str, log_level: &str) -> Result<()> {
             db,
         )
     } else {
-        web::WebServer::new(cfg.clone(), config_path.to_string(), device_controller.clone())
+        web::WebServer::new(
+            cfg.clone(),
+            config_path.to_string(),
+            device_controller.clone(),
+        )
     };
-    
+
     // 运行服务器 (这里会阻塞，直到 server 结束)
     if let Err(e) = web_server.run().await {
         tracing::error!("Web服务器错误: {:?}", e);

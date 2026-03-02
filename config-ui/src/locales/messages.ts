@@ -21,7 +21,19 @@ export const messages: Record<LocaleCode, Messages> = {
       actions: '操作',
       enabled: '启用',
       disabled: '禁用',
-      empty: '暂无数据'
+      empty: '暂无数据',
+      search: '搜索',
+      reset: '重置',
+      all: '全部',
+      total: '总计',
+      matched: '匹配',
+      online: '在线'
+    },
+    app: {
+      title: '企业级配置控制台',
+      subtitle: '统一管理通道、设备节点与业务场景策略',
+      currentModule: '当前模块',
+      lastSync: '最近同步：{{time}}'
     },
     sidebar: {
       title: 'DM-Rust 配置中心',
@@ -30,7 +42,8 @@ export const messages: Record<LocaleCode, Messages> = {
       scenes: '场景编排',
       language: '语言',
       chinese: '中文',
-      english: 'English'
+      english: 'English',
+      operations: '快捷操作'
     },
     overview: {
       title: '系统总览',
@@ -38,7 +51,8 @@ export const messages: Record<LocaleCode, Messages> = {
       webPort: 'Web 服务端口',
       channels: '通道数',
       nodes: '节点数',
-      scenes: '场景数'
+      scenes: '场景数',
+      protocols: '协议类型'
     },
     toast: {
       loaded: '配置加载成功',
@@ -49,8 +63,8 @@ export const messages: Record<LocaleCode, Messages> = {
       validationError: '校验失败：{{message}}'
     },
     channels: {
-      title: '通道管理',
-      desc: '通道定义了系统与硬件设备的通信方式，每个通道绑定一种协议。',
+      title: '通道资源管理',
+      desc: '维护设备通信入口，每个通道绑定一个协议并带有协议参数。',
       add: '新增通道',
       empty: '尚未配置通道',
       editTitle: '编辑通道',
@@ -59,12 +73,32 @@ export const messages: Record<LocaleCode, Messages> = {
       description: '描述',
       protocol: '协议',
       protocolSelect: '请选择协议',
-      protocolArgs: '协议参数',
-      schemaMissing: '未找到协议 Schema：{{name}}',
+      protocolAll: '全部协议',
+      statusAll: '全部状态',
       status: '状态',
+      protocolArgs: '协议参数',
+      argsCount: '参数项',
+      applyDefaults: '填充默认值',
+      clearArgs: '清空参数',
+      fieldCount: '字段总数',
+      requiredCount: '必填字段',
+      defaultCount: '默认值字段',
+      fieldName: '字段名',
+      fieldType: '类型',
+      fieldRequired: '必填',
+      fieldDefault: '默认值',
+      rawJsonTitle: '高级 JSON 编辑',
+      applyRawJson: '应用 JSON',
+      rawJsonObjectError: 'JSON 必须是对象',
+      schemaMissing: '未找到协议 Schema：{{name}}',
+      schemaOverview: '参数概览',
+      fieldsDetail: '字段详情',
       noProtocol: '未配置协议',
       confirmDelete: '确认删除通道 {{id}} 吗？',
       defaultName: '通道 {{id}}',
+      keywordPlaceholder: '搜索通道 ID / 描述 / 协议',
+      editorForm: '可视化配置',
+      editorJson: 'JSON 配置',
       validation: {
         idRequired: '通道 ID 必须大于 0',
         idDuplicate: '通道 ID 不能重复',
@@ -72,8 +106,8 @@ export const messages: Record<LocaleCode, Messages> = {
       }
     },
     nodes: {
-      title: '设备节点',
-      desc: '节点代表可控设备。节点通过通道 ID 关联通信通道，并在通道内使用设备 ID 定位。',
+      title: '设备节点资产',
+      desc: '节点绑定通道后即可被场景或策略调用，建议统一命名并控制全局 ID 规范。',
       add: '新增节点',
       empty: '暂无节点，请先创建通道再添加节点。',
       groupTitle: '通道 {{id}}',
@@ -81,10 +115,14 @@ export const messages: Record<LocaleCode, Messages> = {
       deviceId: '设备 ID',
       alias: '别名',
       channel: '所属通道',
+      channelAll: '全部通道',
+      channelName: '通道信息',
       nodeIdInChannel: '设备 ID（通道内）',
       editTitle: '编辑节点',
       createTitle: '新建节点',
       confirmDelete: '确认删除节点 “{{name}}” 吗？',
+      keywordPlaceholder: '搜索节点别名 / 全局 ID / 通道 ID',
+      coverage: '覆盖通道',
       validation: {
         globalIdRequired: '全局 ID 必须大于 0',
         globalIdDuplicate: '全局 ID 不能重复',
@@ -93,8 +131,8 @@ export const messages: Record<LocaleCode, Messages> = {
       }
     },
     scenes: {
-      title: '场景编排',
-      desc: '场景由多个步骤组成，每个步骤可设置目标节点、目标值及延时。',
+      title: '场景编排中心',
+      desc: '场景由步骤序列组成，每一步指定节点目标值和延迟，用于自动化联动。',
       add: '新增场景',
       empty: '尚未配置场景',
       createTitle: '新建场景',
@@ -109,6 +147,16 @@ export const messages: Record<LocaleCode, Messages> = {
       noSteps: '尚未添加步骤',
       more: '+{{count}} 个',
       confirmDelete: '确认删除场景 “{{name}}” 吗？',
+      keywordPlaceholder: '搜索场景名称',
+      totalSteps: '步骤总数',
+      avgSteps: '平均步骤',
+      stepPreview: '步骤预览',
+      viewFlow: '查看流程',
+      flowTitle: '场景流程: {{name}}',
+      flowEnd: '结束',
+      flowDelay: '延迟 {{ms}}ms',
+      editorVisual: '可视化编辑',
+      editorTable: '表格编辑',
       validation: {
         nameRequired: '场景名称不能为空',
         noNode: '当前没有可用节点，无法添加步骤'
@@ -130,7 +178,19 @@ export const messages: Record<LocaleCode, Messages> = {
       actions: 'Actions',
       enabled: 'Enabled',
       disabled: 'Disabled',
-      empty: 'No data'
+      empty: 'No data',
+      search: 'Search',
+      reset: 'Reset',
+      all: 'All',
+      total: 'Total',
+      matched: 'Matched',
+      online: 'Online'
+    },
+    app: {
+      title: 'Enterprise Configuration Console',
+      subtitle: 'Unified management for channels, device nodes, and scene policies',
+      currentModule: 'Current Module',
+      lastSync: 'Last Sync: {{time}}'
     },
     sidebar: {
       title: 'DM-Rust Config Center',
@@ -139,15 +199,17 @@ export const messages: Record<LocaleCode, Messages> = {
       scenes: 'Scenes',
       language: 'Language',
       chinese: '中文',
-      english: 'English'
+      english: 'English',
+      operations: 'Quick Actions'
     },
     overview: {
-      title: 'Overview',
-      desc: 'Manage channels, device nodes, scenes, and system settings in one place.',
+      title: 'System Overview',
+      desc: 'Manage channels, nodes, scenes, and runtime settings in one place.',
       webPort: 'Web Server Port',
       channels: 'Channels',
       nodes: 'Nodes',
-      scenes: 'Scenes'
+      scenes: 'Scenes',
+      protocols: 'Protocols'
     },
     toast: {
       loaded: 'Configuration loaded',
@@ -158,8 +220,8 @@ export const messages: Record<LocaleCode, Messages> = {
       validationError: 'Validation failed: {{message}}'
     },
     channels: {
-      title: 'Channels',
-      desc: 'Channels define how the system communicates with hardware. Each channel binds to one protocol.',
+      title: 'Channel Resource Management',
+      desc: 'Maintain communication entries for devices. Each channel binds one protocol and its arguments.',
       add: 'Add Channel',
       empty: 'No channels configured yet.',
       editTitle: 'Edit Channel',
@@ -168,12 +230,32 @@ export const messages: Record<LocaleCode, Messages> = {
       description: 'Description',
       protocol: 'Protocol',
       protocolSelect: 'Select protocol',
-      protocolArgs: 'Protocol Arguments',
-      schemaMissing: 'Schema not found: {{name}}',
+      protocolAll: 'All Protocols',
+      statusAll: 'All Status',
       status: 'Status',
+      protocolArgs: 'Protocol Arguments',
+      argsCount: 'Arguments',
+      applyDefaults: 'Apply Defaults',
+      clearArgs: 'Clear Args',
+      fieldCount: 'Fields',
+      requiredCount: 'Required',
+      defaultCount: 'Defaults',
+      fieldName: 'Field',
+      fieldType: 'Type',
+      fieldRequired: 'Required',
+      fieldDefault: 'Default',
+      rawJsonTitle: 'Advanced JSON Editor',
+      applyRawJson: 'Apply JSON',
+      rawJsonObjectError: 'JSON must be an object',
+      schemaMissing: 'Schema not found: {{name}}',
+      schemaOverview: 'Argument Overview',
+      fieldsDetail: 'Field Details',
       noProtocol: 'No protocol',
       confirmDelete: 'Delete channel {{id}}?',
       defaultName: 'Channel {{id}}',
+      keywordPlaceholder: 'Search channel ID / description / protocol',
+      editorForm: 'Visual Config',
+      editorJson: 'JSON Config',
       validation: {
         idRequired: 'Channel ID must be greater than 0',
         idDuplicate: 'Channel ID must be unique',
@@ -181,8 +263,8 @@ export const messages: Record<LocaleCode, Messages> = {
       }
     },
     nodes: {
-      title: 'Device Nodes',
-      desc: 'A node is a controllable device linked to a channel by Channel ID and addressed by Device ID in that channel.',
+      title: 'Device Node Assets',
+      desc: 'Nodes are bound to channels and referenced by scenes. Keep naming and global IDs consistent.',
       add: 'Add Node',
       empty: 'No nodes. Create channels first.',
       groupTitle: 'Channel {{id}}',
@@ -190,10 +272,14 @@ export const messages: Record<LocaleCode, Messages> = {
       deviceId: 'Device ID',
       alias: 'Alias',
       channel: 'Channel',
+      channelAll: 'All Channels',
+      channelName: 'Channel Info',
       nodeIdInChannel: 'Device ID (in channel)',
       editTitle: 'Edit Node',
       createTitle: 'New Node',
       confirmDelete: 'Delete node "{{name}}"?',
+      keywordPlaceholder: 'Search alias / global ID / channel ID',
+      coverage: 'Channel Coverage',
       validation: {
         globalIdRequired: 'Global ID must be greater than 0',
         globalIdDuplicate: 'Global ID must be unique',
@@ -202,8 +288,8 @@ export const messages: Record<LocaleCode, Messages> = {
       }
     },
     scenes: {
-      title: 'Scenes',
-      desc: 'A scene contains multiple steps. Each step can set node target value and delay.',
+      title: 'Scene Orchestration',
+      desc: 'A scene is a sequence of steps. Each step controls node target value and delay.',
       add: 'Add Scene',
       empty: 'No scenes configured.',
       createTitle: 'New Scene',
@@ -218,6 +304,16 @@ export const messages: Record<LocaleCode, Messages> = {
       noSteps: 'No steps yet',
       more: '+{{count}} more',
       confirmDelete: 'Delete scene "{{name}}"?',
+      keywordPlaceholder: 'Search by scene name',
+      totalSteps: 'Total Steps',
+      avgSteps: 'Avg Steps',
+      stepPreview: 'Step Preview',
+      viewFlow: 'View Flow',
+      flowTitle: 'Scene Flow: {{name}}',
+      flowEnd: 'END',
+      flowDelay: 'Delay {{ms}}ms',
+      editorVisual: 'Visual Editor',
+      editorTable: 'Table Editor',
       validation: {
         nameRequired: 'Scene name is required',
         noNode: 'No node available for steps'

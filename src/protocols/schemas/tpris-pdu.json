@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tpris PDU Config",
+  "type": "object",
+  "properties": {
+    "addr": {
+      "type": "string"
+    },
+    "port": {
+      "type": "integer",
+      "default": 502
+    },
+    "slave_id": {
+      "type": "integer",
+      "default": 2
+    }
+  },
+  "required": [
+    "addr"
+  ]
+}

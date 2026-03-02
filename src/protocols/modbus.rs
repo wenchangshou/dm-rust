@@ -6,9 +6,9 @@ use tokio::sync::RwLock;
 use tokio_modbus::prelude::*;
 use tracing::{debug, info, warn};
 
-use crate::protocols::Protocol;
-use crate::utils::{Result, DeviceError};
 use crate::config::AutoCallConfig;
+use crate::protocols::Protocol;
+use crate::utils::{DeviceError, Result};
 
 /// Modbus 数据类型
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,10 +49,7 @@ impl ModbusDataType {
             "float32le" | "floatle" | "f32le" => Ok(Self::Float32LE),
             "float64" | "double" | "f64" => Ok(Self::Float64),
             "bool" | "boolean" | "bit" => Ok(Self::Bool),
-            _ => Err(DeviceError::ConfigError(format!(
-                "不支持的数据类型: {}",
-                s
-            ))),
+            _ => Err(DeviceError::ConfigError(format!("不支持的数据类型: {}", s))),
         }
     }
 
@@ -60,8 +57,12 @@ impl ModbusDataType {
     pub fn register_count(&self) -> u16 {
         match self {
             Self::UInt16 | Self::Int16 => 1,
-            Self::UInt32 | Self::Int32 | Self::UInt32LE | Self::Int32LE 
-            | Self::Float32 | Self::Float32LE => 2,
+            Self::UInt32
+            | Self::Int32
+            | Self::UInt32LE
+            | Self::Int32LE
+            | Self::Float32
+            | Self::Float32LE => 2,
             Self::Float64 => 4,
             Self::Bool => 1,
         }
@@ -107,14 +108,19 @@ impl ModbusProtocol {
             let config = config.clone();
 
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(std::time::Duration::from_millis(config.interval_ms));
-                
+                let mut interval =
+                    tokio::time::interval(std::time::Duration::from_millis(config.interval_ms));
+
                 loop {
                     interval.tick().await;
-                    
-                    if let Err(e) = Self::auto_call_task(&addr, port, slave_id, &config, &cache).await {
-                        warn!("自动召唤失败 (function={}, start_addr={}, count={}): {}", 
-                            config.function, config.start_addr, config.count, e);
+
+                    if let Err(e) =
+                        Self::auto_call_task(&addr, port, slave_id, &config, &cache).await
+                    {
+                        warn!(
+                            "自动召唤失败 (function={}, start_addr={}, count={}): {}",
+                            config.function, config.start_addr, config.count, e
+                        );
                     }
                 }
             });
@@ -142,7 +148,9 @@ impl ModbusProtocol {
 
         match config.function.as_str() {
             "holding" => {
-                let registers = ctx.read_holding_registers(config.start_addr, config.count).await
+                let registers = ctx
+                    .read_holding_registers(config.start_addr, config.count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -150,11 +158,14 @@ impl ModbusProtocol {
                 let mut updated_addrs = Vec::new();
                 for (i, &value) in registers.iter().enumerate() {
                     let addr = config.start_addr + i as u16;
-                    cache_write.insert(addr, (Value::Number(value.into()), "uint16".to_string(), now));
+                    cache_write.insert(
+                        addr,
+                        (Value::Number(value.into()), "uint16".to_string(), now),
+                    );
                     updated_addrs.push((addr, value));
                 }
                 drop(cache_write);
-                
+
                 info!(
                     "自动召唤成功: 保持寄存器 [{}-{}], 更新了 {} 个地址。样例数据: [addr={}, val={}], [addr={}, val={}]", 
                     config.start_addr, 
@@ -167,7 +178,9 @@ impl ModbusProtocol {
                 );
             }
             "input" => {
-                let registers = ctx.read_input_registers(config.start_addr, config.count).await
+                let registers = ctx
+                    .read_input_registers(config.start_addr, config.count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -175,11 +188,14 @@ impl ModbusProtocol {
                 let mut updated_addrs = Vec::new();
                 for (i, &value) in registers.iter().enumerate() {
                     let addr = config.start_addr + i as u16;
-                    cache_write.insert(addr, (Value::Number(value.into()), "uint16".to_string(), now));
+                    cache_write.insert(
+                        addr,
+                        (Value::Number(value.into()), "uint16".to_string(), now),
+                    );
                     updated_addrs.push((addr, value));
                 }
                 drop(cache_write);
-                
+
                 info!(
                     "自动召唤成功: 输入寄存器 [{}-{}], 更新了 {} 个地址。样例数据: [addr={}, val={}], [addr={}, val={}]", 
                     config.start_addr, 
@@ -192,7 +208,9 @@ impl ModbusProtocol {
                 );
             }
             "coil" => {
-                let coils = ctx.read_coils(config.start_addr, config.count).await
+                let coils = ctx
+                    .read_coils(config.start_addr, config.count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -204,16 +222,18 @@ impl ModbusProtocol {
                     updated_addrs.push(addr);
                 }
                 drop(cache_write);
-                
+
                 info!(
-                    "自动召唤成功: 线圈 [{}-{}], 更新了 {} 个地址", 
-                    config.start_addr, 
+                    "自动召唤成功: 线圈 [{}-{}], 更新了 {} 个地址",
+                    config.start_addr,
                     config.start_addr + config.count - 1,
                     updated_addrs.len()
                 );
             }
             "discrete" => {
-                let inputs = ctx.read_discrete_inputs(config.start_addr, config.count).await
+                let inputs = ctx
+                    .read_discrete_inputs(config.start_addr, config.count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -225,16 +245,19 @@ impl ModbusProtocol {
                     updated_addrs.push(addr);
                 }
                 drop(cache_write);
-                
+
                 info!(
-                    "自动召唤成功: 离散输入 [{}-{}], 更新了 {} 个地址", 
-                    config.start_addr, 
+                    "自动召唤成功: 离散输入 [{}-{}], 更新了 {} 个地址",
+                    config.start_addr,
                     config.start_addr + config.count - 1,
                     updated_addrs.len()
                 );
             }
             _ => {
-                return Err(DeviceError::ConfigError(format!("不支持的功能码: {}", config.function)));
+                return Err(DeviceError::ConfigError(format!(
+                    "不支持的功能码: {}",
+                    config.function
+                )));
             }
         }
 
@@ -243,18 +266,20 @@ impl ModbusProtocol {
 
     /// 从缓存读取数据
     pub async fn read_from_cache(&self, addr: u16, data_type: &str) -> Result<Option<Value>> {
-
         println!("尝试从缓存读取: addr={} type={}", addr, data_type);
         let cache = self.cache.read().await;
         // 打印cache所有的值
-            for (k, v) in cache.iter() {
-                println!("缓存地址: {}, 值: {:?}, 类型: {}, 时间: {:?}", k, v.0, v.1, v.2);
-            }
-        
+        for (k, v) in cache.iter() {
+            println!(
+                "缓存地址: {}, 值: {:?}, 类型: {}, 时间: {:?}",
+                k, v.0, v.1, v.2
+            );
+        }
+
         // 根据数据类型需要读取的寄存器数量
         let data_type_enum = ModbusDataType::from_str(data_type)?;
         let count = data_type_enum.register_count() as usize;
-        
+
         if data_type_enum.is_coil() {
             // 线圈类型直接从缓存读取
             if let Some((value, _, _)) = cache.get(&addr) {
@@ -275,12 +300,12 @@ impl ModbusProtocol {
                     return Ok(None); // 缓存中缺少数据
                 }
             }
-            
+
             // 将寄存器数据转换为指定类型
             let converted = Self::registers_to_value(&registers, data_type_enum)?;
             return Ok(Some(converted));
         }
-        
+
         Ok(None)
     }
 
@@ -514,28 +539,26 @@ impl Protocol for ModbusProtocol {
                 let addr = params
                     .get("addr")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        DeviceError::ConfigError("Modbus TCP模式缺少addr参数".into())
-                    })?
+                    .ok_or_else(|| DeviceError::ConfigError("Modbus TCP模式缺少addr参数".into()))?
                     .to_string();
 
-                let port = params
-                    .get("port")
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
+                let port =
+                    params.get("port").and_then(|v| v.as_u64()).ok_or_else(|| {
                         DeviceError::ConfigError("Modbus TCP模式缺少port参数".into())
                     })? as u16;
 
-                let slave_id = params
-                    .get("slave_id")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as u8;
+                let slave_id = params.get("slave_id").and_then(|v| v.as_u64()).unwrap_or(1) as u8;
 
                 // 读取自动召唤配置
-                let auto_call_configs = if let Some(auto_call_arr) = params.get("auto_call").and_then(|v| v.as_array()) {
-                    auto_call_arr.iter().filter_map(|item| {
-                        serde_json::from_value::<AutoCallConfig>(item.clone()).ok()
-                    }).collect()
+                let auto_call_configs = if let Some(auto_call_arr) =
+                    params.get("auto_call").and_then(|v| v.as_array())
+                {
+                    auto_call_arr
+                        .iter()
+                        .filter_map(|item| {
+                            serde_json::from_value::<AutoCallConfig>(item.clone()).ok()
+                        })
+                        .collect()
                 } else {
                     Vec::new()
                 };
@@ -557,11 +580,7 @@ impl Protocol for ModbusProtocol {
 
                 Ok(Box::new(protocol))
             }
-            "serial" => {
-                Err(DeviceError::ConfigError(
-                    "Modbus串口模式暂未实现".into(),
-                ))
-            }
+            "serial" => Err(DeviceError::ConfigError("Modbus串口模式暂未实现".into())),
             _ => Err(DeviceError::ConfigError(format!(
                 "不支持的Modbus连接类型: {}",
                 conn_type
@@ -608,16 +627,25 @@ impl Protocol for ModbusProtocol {
 
                 // 根据数据类型读取
                 if data_type.is_coil() {
-                    let coil = ctx.read_coils(addr, 1).await
+                    let coil = ctx
+                        .read_coils(addr, 1)
+                        .await
                         .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                         .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
-                    
+
                     let value = coil.get(0).copied().unwrap_or(false);
-                    
+
                     // 更新缓存
                     let mut cache = self.cache.write().await;
-                    cache.insert(addr, (Value::Bool(value), data_type_str.to_string(), std::time::Instant::now()));
-                    
+                    cache.insert(
+                        addr,
+                        (
+                            Value::Bool(value),
+                            data_type_str.to_string(),
+                            std::time::Instant::now(),
+                        ),
+                    );
+
                     Ok(serde_json::json!({
                         "status": "success",
                         "value": value,
@@ -626,7 +654,9 @@ impl Protocol for ModbusProtocol {
                     }))
                 } else {
                     let count = data_type.register_count();
-                    let registers = ctx.read_holding_registers(addr, count).await
+                    let registers = ctx
+                        .read_holding_registers(addr, count)
+                        .await
                         .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                         .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -636,7 +666,10 @@ impl Protocol for ModbusProtocol {
                     let mut cache = self.cache.write().await;
                     let now = std::time::Instant::now();
                     for (i, &reg) in registers.iter().enumerate() {
-                        cache.insert(addr + i as u16, (Value::Number(reg.into()), "uint16".to_string(), now));
+                        cache.insert(
+                            addr + i as u16,
+                            (Value::Number(reg.into()), "uint16".to_string(), now),
+                        );
                     }
 
                     Ok(serde_json::json!({
@@ -670,23 +703,31 @@ impl Protocol for ModbusProtocol {
 
                 // 根据数据类型写入
                 if data_type.is_coil() {
-                    let bool_val = value.as_bool()
+                    let bool_val = value
+                        .as_bool()
                         .ok_or_else(|| DeviceError::ConfigError("Bool类型需要布尔值".into()))?;
-                    
-                    ctx.write_single_coil(addr, bool_val).await
+
+                    ctx.write_single_coil(addr, bool_val)
+                        .await
                         .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
                         .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
                 } else {
                     let registers = Self::value_to_registers(value, data_type)?;
-                    
+
                     if registers.len() == 1 {
-                        ctx.write_single_register(addr, registers[0]).await
+                        ctx.write_single_register(addr, registers[0])
+                            .await
                             .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
-                            .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
+                            .map_err(|e| {
+                                DeviceError::ProtocolError(format!("Modbus异常: {:?}", e))
+                            })?;
                     } else {
-                        ctx.write_multiple_registers(addr, &registers).await
+                        ctx.write_multiple_registers(addr, &registers)
+                            .await
                             .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
-                            .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
+                            .map_err(|e| {
+                                DeviceError::ProtocolError(format!("Modbus异常: {:?}", e))
+                            })?;
                     }
                 }
 
@@ -701,12 +742,11 @@ impl Protocol for ModbusProtocol {
                     .ok_or_else(|| DeviceError::ConfigError("缺少addr参数".into()))?
                     as u16;
 
-                let count = params
-                    .get("count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as u16;
+                let count = params.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
 
-                let data = ctx.read_holding_registers(addr, count).await
+                let data = ctx
+                    .read_holding_registers(addr, count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -722,12 +762,11 @@ impl Protocol for ModbusProtocol {
                     .ok_or_else(|| DeviceError::ConfigError("缺少addr参数".into()))?
                     as u16;
 
-                let count = params
-                    .get("count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as u16;
+                let count = params.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
 
-                let data = ctx.read_input_registers(addr, count).await
+                let data = ctx
+                    .read_input_registers(addr, count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -749,7 +788,8 @@ impl Protocol for ModbusProtocol {
                     .ok_or_else(|| DeviceError::ConfigError("缺少value参数".into()))?
                     as u16;
 
-                ctx.write_single_register(addr, value).await
+                ctx.write_single_register(addr, value)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -770,7 +810,8 @@ impl Protocol for ModbusProtocol {
                     .filter_map(|v| v.as_u64().map(|n| n as u16))
                     .collect();
 
-                ctx.write_multiple_registers(addr, &values).await
+                ctx.write_multiple_registers(addr, &values)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -783,12 +824,11 @@ impl Protocol for ModbusProtocol {
                     .ok_or_else(|| DeviceError::ConfigError("缺少addr参数".into()))?
                     as u16;
 
-                let count = params
-                    .get("count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as u16;
+                let count = params.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
 
-                let data = ctx.read_coils(addr, count).await
+                let data = ctx
+                    .read_coils(addr, count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -804,12 +844,11 @@ impl Protocol for ModbusProtocol {
                     .ok_or_else(|| DeviceError::ConfigError("缺少addr参数".into()))?
                     as u16;
 
-                let count = params
-                    .get("count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as u16;
+                let count = params.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
 
-                let data = ctx.read_discrete_inputs(addr, count).await
+                let data = ctx
+                    .read_discrete_inputs(addr, count)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -830,7 +869,8 @@ impl Protocol for ModbusProtocol {
                     .and_then(|v| v.as_bool())
                     .ok_or_else(|| DeviceError::ConfigError("缺少value参数".into()))?;
 
-                ctx.write_single_coil(addr, value).await
+                ctx.write_single_coil(addr, value)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -851,7 +891,8 @@ impl Protocol for ModbusProtocol {
                     .filter_map(|v| v.as_bool())
                     .collect();
 
-                ctx.write_multiple_coils(addr, &values).await
+                ctx.write_multiple_coils(addr, &values)
+                    .await
                     .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
                     .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
 
@@ -881,7 +922,8 @@ impl Protocol for ModbusProtocol {
 
     async fn write(&mut self, id: u32, value: i32) -> Result<()> {
         let mut ctx = self.connect().await?;
-        ctx.write_single_register(id as u16, value as u16).await
+        ctx.write_single_register(id as u16, value as u16)
+            .await
             .map_err(|e| DeviceError::ConnectionError(format!("写入失败: {}", e)))?
             .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
         Ok(())
@@ -894,19 +936,28 @@ impl Protocol for ModbusProtocol {
                 return Ok(num as i32);
             }
         }
-        
+
         // 缓存未命中，从设备读取
         let mut ctx = self.connect().await?;
-        let data = ctx.read_holding_registers(id as u16, 1).await
+        let data = ctx
+            .read_holding_registers(id as u16, 1)
+            .await
             .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?
             .map_err(|e| DeviceError::ProtocolError(format!("Modbus异常: {:?}", e)))?;
-        
+
         let value = data.get(0).copied().unwrap_or(0) as i32;
-        
+
         // 更新缓存
         let mut cache = self.cache.write().await;
-        cache.insert(id as u16, (Value::Number(value.into()), "int16".to_string(), std::time::Instant::now()));
-        
+        cache.insert(
+            id as u16,
+            (
+                Value::Number(value.into()),
+                "int16".to_string(),
+                std::time::Instant::now(),
+            ),
+        );
+
         Ok(value)
     }
 

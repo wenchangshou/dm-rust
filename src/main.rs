@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use dm_rust::{service, Args, run_app};
+use dm_rust::{run_app, service, Args};
 
 #[tokio::main]
 async fn main() -> Result<()> {

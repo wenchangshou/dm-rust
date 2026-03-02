@@ -1,11 +1,11 @@
+use dashmap::DashMap;
 /// 节点管理器 - 负责逻辑设备状态管理
 use std::sync::Arc;
-use dashmap::DashMap;
 use tokio::sync::broadcast;
 use tracing::debug;
 
-use crate::config::NodeConfig;
 use super::DeviceEvent;
+use crate::config::NodeConfig;
 
 /// 节点状态
 #[derive(Debug, Clone)]
@@ -29,17 +29,14 @@ pub struct NodeManager {
 
 impl NodeManager {
     /// 创建节点管理器
-    pub fn new(
-        node_configs: &[NodeConfig],
-        event_tx: broadcast::Sender<DeviceEvent>,
-    ) -> Self {
+    pub fn new(node_configs: &[NodeConfig], event_tx: broadcast::Sender<DeviceEvent>) -> Self {
         let nodes = DashMap::new();
         let states = DashMap::new();
-        
+
         for config in node_configs {
             // 保存配置
             nodes.insert(config.global_id, config.clone());
-            
+
             // 初始化状态
             let state = NodeState {
                 global_id: config.global_id,
@@ -53,20 +50,24 @@ impl NodeManager {
             };
             states.insert(config.global_id, state);
         }
-        
-        Self { nodes, states, event_tx }
+
+        Self {
+            nodes,
+            states,
+            event_tx,
+        }
     }
-    
+
     /// 获取节点配置
     pub fn get_node(&self, global_id: u32) -> Option<NodeConfig> {
         self.nodes.get(&global_id).map(|n| n.clone())
     }
-    
+
     /// 获取节点状态
     pub fn get_state(&self, global_id: u32) -> Option<NodeState> {
         self.states.get(&global_id).map(|s| s.clone())
     }
-    
+
     /// 获取所有节点状态
     pub fn get_all_states(&self) -> Vec<(u32, NodeState)> {
         self.states
@@ -74,7 +75,7 @@ impl NodeManager {
             .map(|entry| (*entry.key(), entry.value().clone()))
             .collect()
     }
-    
+
     /// 更新节点值
     pub fn update_value(&self, global_id: u32, new_value: i32) {
         if let Some(mut state) = self.states.get_mut(&global_id) {
@@ -82,7 +83,7 @@ impl NodeManager {
             state.current_value = Some(new_value);
             state.last_update = Some(std::time::Instant::now());
             state.online = true;
-            
+
             // 发送状态变化事件
             if old_value != new_value {
                 let _ = self.event_tx.send(DeviceEvent::NodeStateChanged {
@@ -90,19 +91,22 @@ impl NodeManager {
                     old_value,
                     new_value,
                 });
-                
-                debug!("节点 {} 状态更新: {} -> {}", global_id, old_value, new_value);
+
+                debug!(
+                    "节点 {} 状态更新: {} -> {}",
+                    global_id, old_value, new_value
+                );
             }
         }
     }
-    
+
     /// 设置节点在线状态
     pub fn set_online(&self, global_id: u32, online: bool) {
         if let Some(mut state) = self.states.get_mut(&global_id) {
             state.online = online;
         }
     }
-    
+
     /// 通过通道ID和设备ID查找全局ID
     pub fn find_global_id(&self, channel_id: u32, device_id: u32) -> Option<u32> {
         self.nodes
@@ -113,7 +117,7 @@ impl NodeManager {
             })
             .map(|entry| *entry.key())
     }
-    
+
     /// 获取节点数量
     pub fn node_count(&self) -> usize {
         self.nodes.len()

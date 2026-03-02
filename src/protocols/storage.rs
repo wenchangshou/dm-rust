@@ -37,7 +37,8 @@ impl ProtocolStorage {
 
     /// 获取通道的存储文件路径
     fn get_channel_file(&self, channel_id: u32) -> PathBuf {
-        self.storage_dir.join(format!("channel_{}.json", channel_id))
+        self.storage_dir
+            .join(format!("channel_{}.json", channel_id))
     }
 
     /// 加载通道的存储数据
@@ -136,9 +137,7 @@ impl ProtocolStorage {
     /// 删除值
     pub async fn remove(&self, channel_id: u32, key: &str) -> Option<Value> {
         let mut cache = self.cache.write().await;
-        let removed = cache
-            .get_mut(&channel_id)
-            .and_then(|data| data.remove(key));
+        let removed = cache.get_mut(&channel_id).and_then(|data| data.remove(key));
 
         if removed.is_some() {
             debug!("通道 {} 存储删除: {}", channel_id, key);

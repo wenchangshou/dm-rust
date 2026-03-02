@@ -1,8 +1,8 @@
 //! 通用 API 响应类型
 
+use crate::db::{MaterialResponse, Screen, UploadMaterialResponse};
 use serde::Serialize;
 use utoipa::ToSchema;
-use crate::db::{Screen, UploadMaterialResponse, MaterialResponse};
 
 /// 统一 API 响应结构
 #[derive(Serialize, ToSchema)]

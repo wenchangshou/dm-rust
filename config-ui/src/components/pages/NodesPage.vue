@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { useI18n } from '../../composables/useI18n'
 import type { Channel, NodeItem, ToastType } from '../../types/config'
 import { deepClone } from '../../utils/deepClone'
-
-interface NodeGroup {
-  channelId: number
-  channel?: Channel
-  items: Array<{ node: NodeItem; index: number }>
-}
 
 const props = defineProps<{
   nodes: NodeItem[]
@@ -24,24 +19,47 @@ const { t } = useI18n()
 
 const editingNode = ref<NodeItem | null>(null)
 const editingIndex = ref(-1)
+const editorVisible = ref(false)
 
-const groupedNodes = computed<NodeGroup[]>(() => {
-  const map = new Map<number, NodeGroup>()
+const keyword = ref('')
+const channelFilter = ref('all')
 
-  props.nodes.forEach((node, index) => {
-    if (!map.has(node.channel_id)) {
-      map.set(node.channel_id, {
-        channelId: node.channel_id,
-        channel: props.channels.find((channel) => channel.channel_id === node.channel_id),
-        items: []
-      })
+const channelMap = computed(() => {
+  const map = new Map<number, Channel>()
+  props.channels.forEach((channel) => map.set(channel.channel_id, channel))
+  return map
+})
+
+const filteredNodes = computed(() => {
+  const key = keyword.value.trim().toLowerCase()
+
+  return props.nodes.filter((node) => {
+    if (channelFilter.value !== 'all' && node.channel_id !== Number(channelFilter.value)) {
+      return false
     }
 
-    map.get(node.channel_id)?.items.push({ node, index })
-  })
+    if (!key) {
+      return true
+    }
 
-  return [...map.values()].sort((a, b) => a.channelId - b.channelId)
+    const channelName = channelMap.value.get(node.channel_id)?.description ?? ''
+    const combined = [
+      String(node.global_id),
+      String(node.channel_id),
+      node.alias,
+      channelName
+    ].join(' ').toLowerCase()
+
+    return combined.includes(key)
+  })
 })
+
+const channelCoverage = computed(() => new Set(props.nodes.map((node) => node.channel_id)).size)
+
+const resetFilters = () => {
+  keyword.value = ''
+  channelFilter.value = 'all'
+}
 
 const openCreate = () => {
   const firstChannel = props.channels[0]
@@ -61,21 +79,32 @@ const openCreate = () => {
     alias: ''
   }
   editingIndex.value = -1
+  editorVisible.value = true
 }
 
 const openEdit = (index: number) => {
-  const target = props.nodes[index]
+  const target = filteredNodes.value[index]
   if (!target) {
     return
   }
 
+  const sourceIndex = props.nodes.findIndex((node) => node.global_id === target.global_id)
+  if (sourceIndex < 0) {
+    return
+  }
+
   editingNode.value = deepClone(target)
-  editingIndex.value = index
+  editingIndex.value = sourceIndex
+  editorVisible.value = true
+}
+
+const resetEditor = () => {
+  editingNode.value = null
+  editingIndex.value = -1
 }
 
 const closeEditor = () => {
-  editingNode.value = null
-  editingIndex.value = -1
+  editorVisible.value = false
 }
 
 const validate = (node: NodeItem): string | null => {
@@ -128,277 +157,216 @@ const save = () => {
   }
 
   emit('update:nodes', next)
-  closeEditor()
+  editorVisible.value = false
 }
 
-const remove = (index: number) => {
-  const target = props.nodes[index]
+const remove = async (index: number) => {
+  const target = filteredNodes.value[index]
   if (!target) {
     return
   }
 
-  if (!window.confirm(t('nodes.confirmDelete', { name: target.alias }))) {
+  try {
+    await ElMessageBox.confirm(
+      t('nodes.confirmDelete', { name: target.alias }),
+      t('common.delete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel')
+      }
+    )
+  } catch {
+    return
+  }
+
+  const sourceIndex = props.nodes.findIndex((node) => node.global_id === target.global_id)
+  if (sourceIndex < 0) {
     return
   }
 
   const next = deepClone(props.nodes)
-  next.splice(index, 1)
+  next.splice(sourceIndex, 1)
   emit('update:nodes', next)
+}
+
+const channelLabel = (channelId: number) => {
+  const channel = channelMap.value.get(channelId)
+  if (!channel) {
+    return '#-'
+  }
+  return `#${channel.channel_id} ${channel.description || channel.statute || ''}`
 }
 </script>
 
 <template>
   <section class="page-shell">
-    <div class="page-header">
-      <div>
-        <h1>{{ t('nodes.title') }}</h1>
-        <p>{{ t('nodes.desc') }}</p>
+    <el-card shadow="never" class="toolbar-card">
+      <div class="toolbar-row">
+        <el-input
+          v-model="keyword"
+          :placeholder="t('nodes.keywordPlaceholder')"
+          clearable
+          class="toolbar-item"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+
+        <el-select v-model="channelFilter" class="toolbar-item">
+          <el-option :label="t('nodes.channelAll')" value="all" />
+          <el-option
+            v-for="channel in channels"
+            :key="channel.channel_id"
+            :label="`#${channel.channel_id} ${channel.description || channel.statute || '-'}`"
+            :value="String(channel.channel_id)"
+          />
+        </el-select>
+
+        <el-button @click="resetFilters">{{ t('common.reset') }}</el-button>
+
+        <el-button type="primary" class="create-btn" @click="openCreate">
+          <el-icon><Plus /></el-icon>
+          <span>{{ t('nodes.add') }}</span>
+        </el-button>
       </div>
-      <button class="btn btn-primary" @click="openCreate">+ {{ t('nodes.add') }}</button>
-    </div>
 
-    <div v-if="groupedNodes.length" class="groups">
-      <section v-for="group in groupedNodes" :key="group.channelId" class="group-card">
-        <header>
-          <h3>{{ t('nodes.groupTitle', { id: group.channelId }) }}</h3>
-          <span class="protocol">{{ group.channel?.description || group.channel?.statute || '-' }}</span>
-        </header>
+      <div class="summary-row">
+        <el-tag effect="plain">{{ t('common.total') }}: {{ nodes.length }}</el-tag>
+        <el-tag effect="plain" type="success">{{ t('nodes.coverage') }}: {{ channelCoverage }}</el-tag>
+        <el-tag effect="plain" type="warning">{{ t('common.matched') }}: {{ filteredNodes.length }}</el-tag>
+      </div>
+    </el-card>
 
-        <table>
-          <thead>
-            <tr>
-              <th>{{ t('nodes.globalId') }}</th>
-              <th>{{ t('nodes.deviceId') }}</th>
-              <th>{{ t('nodes.alias') }}</th>
-              <th>{{ t('common.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in group.items" :key="item.node.global_id">
-              <td><code>{{ item.node.global_id }}</code></td>
-              <td><code>{{ item.node.id }}</code></td>
-              <td>{{ item.node.alias }}</td>
-              <td class="table-actions">
-                <button class="btn btn-light" @click="openEdit(item.index)">{{ t('common.edit') }}</button>
-                <button class="btn btn-danger" @click="remove(item.index)">{{ t('common.delete') }}</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-    <div v-else class="empty-state">{{ t('nodes.empty') }}</div>
+    <el-card v-if="filteredNodes.length" shadow="never">
+      <el-table :data="filteredNodes" stripe border>
+        <el-table-column type="index" width="60" />
 
-    <Transition name="panel">
-      <section v-if="editingNode" class="editor-panel">
-        <h2>{{ editingIndex >= 0 ? t('nodes.editTitle') : t('nodes.createTitle') }}</h2>
+        <el-table-column prop="global_id" :label="t('nodes.globalId')" min-width="120">
+          <template #default="{ row }">
+            <el-tag>#{{ row.global_id }}</el-tag>
+          </template>
+        </el-table-column>
 
-        <div class="form-grid">
-          <label>
-            <span>{{ t('nodes.globalId') }}</span>
-            <input v-model.number="editingNode.global_id" type="number" min="1" />
-          </label>
+        <el-table-column prop="alias" :label="t('nodes.alias')" min-width="220" />
 
-          <label>
-            <span>{{ t('nodes.channel') }}</span>
-            <select v-model.number="editingNode.channel_id">
-              <option v-for="channel in channels" :key="channel.channel_id" :value="channel.channel_id">
-                #{{ channel.channel_id }} - {{ channel.description || channel.statute || '-' }}
-              </option>
-            </select>
-          </label>
+        <el-table-column :label="t('nodes.channelName')" min-width="240">
+          <template #default="{ row }">
+            {{ channelLabel(row.channel_id) }}
+          </template>
+        </el-table-column>
 
-          <label>
-            <span>{{ t('nodes.nodeIdInChannel') }}</span>
-            <input v-model.number="editingNode.id" type="number" min="1" />
-          </label>
+        <el-table-column prop="id" :label="t('nodes.deviceId')" min-width="120" align="center" />
 
-          <label>
-            <span>{{ t('nodes.alias') }}</span>
-            <input v-model="editingNode.alias" type="text" />
-          </label>
-        </div>
+        <el-table-column :label="t('common.actions')" width="180" fixed="right">
+          <template #default="{ $index }">
+            <el-button type="primary" link @click="openEdit($index)">{{ t('common.edit') }}</el-button>
+            <el-button type="danger" link @click="remove($index)">{{ t('common.delete') }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-        <div class="actions">
-          <button class="btn btn-light" @click="closeEditor">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" @click="save">
-            {{ editingIndex >= 0 ? t('common.update') : t('common.create') }}
-          </button>
-        </div>
-      </section>
-    </Transition>
+    <el-empty v-else :description="t('nodes.empty')" />
+
+    <el-dialog
+      v-model="editorVisible"
+      :title="editingIndex >= 0 ? t('nodes.editTitle') : t('nodes.createTitle')"
+      width="760px"
+      destroy-on-close
+      @closed="resetEditor"
+    >
+      <template v-if="editingNode">
+        <el-form label-position="top">
+          <el-row :gutter="14">
+            <el-col :xs="24" :md="12">
+              <el-form-item :label="t('nodes.globalId')">
+                <el-input-number v-model="editingNode.global_id" :min="1" class="full-width" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :md="12">
+              <el-form-item :label="t('nodes.channel')">
+                <el-select v-model="editingNode.channel_id" class="full-width">
+                  <el-option
+                    v-for="channel in channels"
+                    :key="channel.channel_id"
+                    :label="`#${channel.channel_id} - ${channel.description || channel.statute || '-'}`"
+                    :value="channel.channel_id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :md="12">
+              <el-form-item :label="t('nodes.nodeIdInChannel')">
+                <el-input-number v-model="editingNode.id" :min="1" class="full-width" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :md="12">
+              <el-form-item :label="t('nodes.alias')">
+                <el-input v-model="editingNode.alias" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
+      </template>
+
+      <template #footer>
+        <el-button @click="closeEditor">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="save">
+          {{ editingIndex >= 0 ? t('common.update') : t('common.create') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <style scoped>
 .page-shell {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
+.toolbar-card {
+  border-style: dashed;
 }
 
-.page-header h1 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin-top: 8px;
-  color: var(--text-secondary);
-  max-width: 760px;
-  line-height: 1.6;
-  font-size: 14px;
-}
-
-.groups {
+.toolbar-row {
   display: grid;
-  gap: 14px;
-}
-
-.group-card {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.group-card header {
-  min-height: 44px;
-  padding: 0 12px;
-  display: flex;
-  justify-content: space-between;
+  grid-template-columns: 1.5fr 1fr auto auto;
+  gap: 10px;
   align-items: center;
-  border-bottom: 1px solid var(--border);
-  background: #f8fbff;
 }
 
-.group-card h3 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.protocol {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-table {
+.toolbar-item {
   width: 100%;
-  border-collapse: collapse;
 }
 
-th,
-td {
-  text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid #edf2f7;
-  font-size: 13px;
+.create-btn {
+  justify-self: end;
 }
 
-th {
-  color: var(--text-secondary);
-  background: #ffffff;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-code {
-  background: #eff6ff;
-  color: #1e3a8a;
-  border-radius: 6px;
-  padding: 2px 6px;
-}
-
-.table-actions {
+.summary-row {
+  margin-top: 10px;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.empty-state {
-  padding: 24px;
-  border: 1px dashed var(--border);
-  border-radius: 14px;
-  color: var(--text-secondary);
-  background: #ffffff;
+.full-width {
+  width: 100%;
 }
 
-.editor-panel {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-  display: grid;
-  gap: 14px;
-}
+@media (max-width: 1200px) {
+  .toolbar-row {
+    grid-template-columns: 1fr 1fr;
+  }
 
-.editor-panel h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.form-grid label {
-  display: grid;
-  gap: 6px;
-}
-
-.form-grid span {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-input,
-select {
-  height: 38px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0 10px;
-  font-size: 14px;
-}
-
-input:focus,
-select:focus {
-  outline: none;
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.panel-enter-active,
-.panel-leave-active {
-  transition: all 0.2s ease;
-}
-
-.panel-enter-from,
-.panel-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-@media (max-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr;
+  .create-btn {
+    justify-self: stretch;
   }
 }
 </style>

@@ -1,15 +1,15 @@
 //! 数据库模块
 
+pub mod material_repo;
 pub mod models;
 pub mod screen_repo;
-pub mod material_repo;
 
-use sqlx::mysql::MySqlPool;
 use anyhow::Result;
+use sqlx::mysql::MySqlPool;
 
+pub use material_repo::MaterialRepository;
 pub use models::*;
 pub use screen_repo::ScreenRepository;
-pub use material_repo::MaterialRepository;
 
 /// 数据库连接池
 #[derive(Clone)]
@@ -24,7 +24,10 @@ impl Database {
     pub async fn new(database_url: &str) -> Result<Self> {
         let pool = MySqlPool::connect(database_url).await?;
         tracing::info!("数据库连接成功");
-        Ok(Self { pool, resource_path: None })
+        Ok(Self {
+            pool,
+            resource_path: None,
+        })
     }
 
     /// 设置资源文件存储路径

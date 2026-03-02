@@ -1,15 +1,15 @@
 //! 设备控制 API 处理器
 
-use axum::{Json, extract::Extension};
+use axum::{extract::Extension, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
-use crate::device::DeviceController;
-use crate::db::Database;
-use crate::utils::error::error_codes;
 use super::response::ApiResponse;
+use crate::db::Database;
+use crate::device::DeviceController;
+use crate::utils::error::error_codes;
 
 // ===== 请求/响应类型定义 =====
 
@@ -183,8 +183,8 @@ pub struct SystemSettingsResponse {
     pub audio_rack: bool,
     #[serde(rename = "video")]
     pub video: Number,
-    #[serde(rename="actuator")]
-    pub  actuator: String
+    #[serde(rename = "actuator")]
+    pub actuator: String,
 }
 
 // ===== API 处理函数 =====
@@ -295,17 +295,20 @@ pub async fn get_all_node_states(
     Extension(controller): Extension<Arc<DeviceController>>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let states = controller.get_all_node_states();
-    let data: Vec<_> = states.into_iter().map(|(global_id, state)| {
-        serde_json::json!({
-            "global_id": global_id,
-            "channel_id": state.channel_id,
-            "device_id": state.device_id,
-            "category": state.category,
-            "alias": state.alias,
-            "current_value": state.current_value,
-            "online": state.online,
+    let data: Vec<_> = states
+        .into_iter()
+        .map(|(global_id, state)| {
+            serde_json::json!({
+                "global_id": global_id,
+                "channel_id": state.channel_id,
+                "device_id": state.device_id,
+                "category": state.category,
+                "alias": state.alias,
+                "current_value": state.current_value,
+                "online": state.online,
+            })
         })
-    }).collect();
+        .collect();
 
     Json(ApiResponse {
         state: error_codes::SUCCESS,
@@ -449,7 +452,10 @@ pub async fn write_device(
     Extension(controller): Extension<Arc<DeviceController>>,
     Json(payload): Json<WriteRequest>,
 ) -> Json<ApiResponse<()>> {
-    match controller.write_node(payload.global_id, payload.value).await {
+    match controller
+        .write_node(payload.global_id, payload.value)
+        .await
+    {
         Ok(_) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "操作成功".to_string(),
@@ -510,7 +516,7 @@ pub async fn write_many(
 }
 
 /// 执行场景（异步执行）
-/// 
+///
 /// 场景会在后台异步执行，此接口立即返回。
 /// 使用 /lspcapi/device/sceneStatus 接口查询执行状态。
 #[utoipa::path(
@@ -577,11 +583,10 @@ pub async fn execute_channel_command(
     Extension(controller): Extension<Arc<DeviceController>>,
     Json(payload): Json<ChannelCommandRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    match controller.execute_channel_command(
-        payload.channel_id,
-        &payload.command,
-        payload.params
-    ).await {
+    match controller
+        .execute_channel_command(payload.channel_id, &payload.command, payload.params)
+        .await
+    {
         Ok(result) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "命令执行成功".to_string(),
@@ -609,11 +614,10 @@ pub async fn call_method(
     Extension(controller): Extension<Arc<DeviceController>>,
     Json(payload): Json<CallMethodRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    match controller.call_channel_method(
-        payload.channel_id,
-        &payload.method_name,
-        payload.arguments
-    ).await {
+    match controller
+        .call_channel_method(payload.channel_id, &payload.method_name, payload.arguments)
+        .await
+    {
         Ok(result) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "方法调用成功".to_string(),
@@ -672,11 +676,9 @@ pub async fn batch_read(
     let mut results = Vec::new();
 
     for item in payload.items {
-        let result = controller.execute_channel_command(
-            item.channel_id,
-            "read",
-            item.params
-        ).await;
+        let result = controller
+            .execute_channel_command(item.channel_id, "read", item.params)
+            .await;
 
         match result {
             Ok(value) => {
@@ -700,7 +702,8 @@ pub async fn batch_read(
 
     Json(ApiResponse {
         state: error_codes::SUCCESS,
-        message: format!("批量读取完成: 成功 {}, 失败 {}",
+        message: format!(
+            "批量读取完成: 成功 {}, 失败 {}",
             results.iter().filter(|r| r.success).count(),
             results.iter().filter(|r| !r.success).count()
         ),

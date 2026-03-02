@@ -1,227 +1,236 @@
 {
-  "web_server": {
-    "port": 18080
-  },
   "channels": [
     {
-      "enable": true,
-      "channel_id": 1,
-      "statute": "mock",
-      "description": "",
       "arguments": {
         "delay_ms": 50,
-        "error_rate": 0.0,
+        "error_rate": 0,
         "initial_values": {
-          "1": 0,
-          "2": 0,
-          "3": 0,
-          "4": 0,
-          "5": 0,
-          "6": 0
+          "1": 1,
+          "2": 2,
+          "3": 3,
+          "4": 4,
+          "5": 5,
+          "6": 6
         }
-      }
+      },
+      "auto_call": null,
+      "channel_id": 1,
+      "description": "",
+      "enable": true,
+      "methods": null,
+      "statute": "mock"
     },
     {
-      "enable": true,
-      "channel_id": 2,
-      "statute": "mock",
-      "description": "模拟通道 - 传感器",
       "arguments": {
         "delay_ms": 100,
-        "error_rate": 0.0,
+        "error_rate": 0,
         "initial_values": {
           "1": 25,
           "2": 60,
           "3": 1013
         }
-      }
+      },
+      "auto_call": null,
+      "channel_id": 2,
+      "description": "模拟通道 - 传感器",
+      "enable": true,
+      "methods": null,
+      "statute": "mock"
     },
     {
-      "enable": true,
-      "channel_id": 3,
-      "statute": "mock",
-      "description": "模拟通道 - 电脑控制",
       "arguments": {
         "delay_ms": 0,
-        "error_rate": 0.0,
+        "error_rate": 0,
         "initial_values": {
           "1": 1,
           "2": 0
         }
-      }
+      },
+      "auto_call": null,
+      "channel_id": 3,
+      "description": "模拟通道 - 电脑控制",
+      "enable": true,
+      "methods": null,
+      "statute": "mock"
     },
     {
-      "enable": true,
-      "channel_id": 4,
-      "statute": "mock",
-      "description": "模拟通道 - 音频设备",
       "arguments": {
         "delay_ms": 30,
-        "error_rate": 0.0,
+        "error_rate": 0,
         "initial_values": {
           "1": 50,
           "2": 50,
           "3": 0,
           "4": 1
         }
-      }
+      },
+      "auto_call": null,
+      "channel_id": 4,
+      "description": "模拟通道 - 音频设备",
+      "enable": true,
+      "methods": null,
+      "statute": "mock"
     },
     {
-      "enable": true,
-      "channel_id": 5,
-      "statute": "mock",
-      "description": "模拟通道 - 窗帘/幕布",
       "arguments": {
         "delay_ms": 200,
-        "error_rate": 0.0,
+        "error_rate": 0,
         "initial_values": {
           "1": 100,
           "2": 0
         }
-      }
+      },
+      "auto_call": null,
+      "channel_id": 5,
+      "description": "模拟通道 - 窗帘/幕布",
+      "enable": true,
+      "methods": null,
+      "statute": "mock"
     },
     {
-      "enable": true,
-      "channel_id": 6,
-      "statute": "mock",
-      "description": "模拟通道 - 空调系统",
       "arguments": {
         "delay_ms": 100,
-        "error_rate": 0.0,
+        "error_rate": 0,
         "initial_values": {
           "1": 1,
           "2": 24,
           "3": 2
         }
-      }
+      },
+      "auto_call": null,
+      "channel_id": 6,
+      "description": "模拟通道 - 空调系统",
+      "enable": true,
+      "methods": null,
+      "statute": "mock"
     }
   ],
   "nodes": [
     {
+      "alias": "主灯",
+      "channel_id": 1,
       "global_id": 1,
-      "channel_id": 1,
-      "id": 1,
-      "alias": "主灯"
+      "id": 1
     },
     {
+      "alias": "辅灯1",
+      "channel_id": 1,
       "global_id": 2,
-      "channel_id": 1,
-      "id": 2,
-      "alias": "辅灯1"
+      "id": 2
     },
     {
+      "alias": "辅灯2",
+      "channel_id": 1,
       "global_id": 3,
-      "channel_id": 1,
-      "id": 3,
-      "alias": "辅灯2"
+      "id": 3
     },
     {
+      "alias": "氛围灯",
+      "channel_id": 1,
       "global_id": 4,
-      "channel_id": 1,
-      "id": 4,
-      "alias": "氛围灯"
+      "id": 4
     },
     {
+      "alias": "投影机1",
+      "channel_id": 1,
       "global_id": 10,
-      "channel_id": 1,
-      "id": 10,
-      "alias": "投影机1"
+      "id": 10
     },
     {
+      "alias": "投影机2",
+      "channel_id": 1,
       "global_id": 11,
-      "channel_id": 1,
-      "id": 11,
-      "alias": "投影机2"
+      "id": 11
     },
     {
+      "alias": "LED屏幕",
+      "channel_id": 1,
       "global_id": 12,
-      "channel_id": 1,
-      "id": 12,
-      "alias": "LED屏幕"
+      "id": 12
     },
     {
+      "alias": "温度传感器",
+      "channel_id": 2,
       "global_id": 20,
-      "channel_id": 2,
-      "id": 1,
-      "alias": "温度传感器"
+      "id": 1
     },
     {
+      "alias": "湿度传感器",
+      "channel_id": 2,
       "global_id": 21,
-      "channel_id": 2,
-      "id": 2,
-      "alias": "湿度传感器"
+      "id": 2
     },
     {
+      "alias": "气压传感器",
+      "channel_id": 2,
       "global_id": 22,
-      "channel_id": 2,
-      "id": 3,
-      "alias": "气压传感器"
+      "id": 3
     },
     {
+      "alias": "主控电脑",
+      "channel_id": 3,
       "global_id": 30,
-      "channel_id": 3,
-      "id": 1,
-      "alias": "主控电脑"
+      "id": 1
     },
     {
+      "alias": "播放电脑",
+      "channel_id": 3,
       "global_id": 31,
-      "channel_id": 3,
-      "id": 2,
-      "alias": "播放电脑"
+      "id": 2
     },
     {
+      "alias": "主音量",
+      "channel_id": 4,
       "global_id": 40,
-      "channel_id": 4,
-      "id": 1,
-      "alias": "主音量"
+      "id": 1
     },
     {
+      "alias": "麦克风音量",
+      "channel_id": 4,
       "global_id": 41,
-      "channel_id": 4,
-      "id": 2,
-      "alias": "麦克风音量"
+      "id": 2
     },
     {
+      "alias": "静音开关",
+      "channel_id": 4,
       "global_id": 42,
-      "channel_id": 4,
-      "id": 3,
-      "alias": "静音开关"
+      "id": 3
     },
     {
+      "alias": "功放电源",
+      "channel_id": 4,
       "global_id": 43,
-      "channel_id": 4,
-      "id": 4,
-      "alias": "功放电源"
+      "id": 4
     },
     {
+      "alias": "投影幕布",
+      "channel_id": 5,
       "global_id": 50,
-      "channel_id": 5,
-      "id": 1,
-      "alias": "投影幕布"
+      "id": 1
     },
     {
+      "alias": "电动窗帘",
+      "channel_id": 5,
       "global_id": 51,
-      "channel_id": 5,
-      "id": 2,
-      "alias": "电动窗帘"
+      "id": 2
     },
     {
+      "alias": "空调开关",
+      "channel_id": 6,
       "global_id": 60,
-      "channel_id": 6,
-      "id": 1,
-      "alias": "空调开关"
+      "id": 1
     },
     {
+      "alias": "空调温度",
+      "channel_id": 6,
       "global_id": 61,
-      "channel_id": 6,
-      "id": 2,
-      "alias": "空调温度"
+      "id": 2
     },
     {
-      "global_id": 62,
+      "alias": "空调模式",
       "channel_id": 6,
-      "id": 3,
-      "alias": "空调模式"
+      "global_id": 62,
+      "id": 3
     }
   ],
   "scenes": [
@@ -229,44 +238,44 @@
       "name": "会议模式",
       "nodes": [
         {
+          "delay": 0,
           "id": 1,
-          "value": 80,
-          "delay": 0
+          "value": 80
         },
         {
+          "delay": 0,
           "id": 2,
-          "value": 60,
-          "delay": 0
+          "value": 60
         },
         {
+          "delay": 0,
           "id": 3,
-          "value": 60,
-          "delay": 0
+          "value": 60
         },
         {
+          "delay": 0,
           "id": 4,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 500,
           "id": 10,
-          "value": 1,
-          "delay": 500
+          "value": 1
         },
         {
+          "delay": 1000,
           "id": 50,
-          "value": 0,
-          "delay": 1000
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 40,
-          "value": 70,
-          "delay": 0
+          "value": 70
         },
         {
+          "delay": 0,
           "id": 43,
-          "value": 1,
-          "delay": 0
+          "value": 1
         }
       ]
     },
@@ -274,49 +283,49 @@
       "name": "演示模式",
       "nodes": [
         {
+          "delay": 0,
           "id": 1,
-          "value": 20,
-          "delay": 0
+          "value": 20
         },
         {
+          "delay": 0,
           "id": 2,
-          "value": 10,
-          "delay": 0
+          "value": 10
         },
         {
+          "delay": 0,
           "id": 3,
-          "value": 10,
-          "delay": 0
+          "value": 10
         },
         {
+          "delay": 0,
           "id": 4,
-          "value": 30,
-          "delay": 0
+          "value": 30
         },
         {
+          "delay": 0,
           "id": 10,
-          "value": 1,
-          "delay": 0
+          "value": 1
         },
         {
+          "delay": 500,
           "id": 11,
-          "value": 1,
-          "delay": 500
+          "value": 1
         },
         {
+          "delay": 1000,
           "id": 50,
-          "value": 0,
-          "delay": 1000
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 51,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 40,
-          "value": 80,
-          "delay": 0
+          "value": 80
         }
       ]
     },
@@ -324,49 +333,49 @@
       "name": "休息模式",
       "nodes": [
         {
+          "delay": 0,
           "id": 1,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 2,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 3,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 4,
-          "value": 50,
-          "delay": 0
+          "value": 50
         },
         {
+          "delay": 0,
           "id": 10,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 11,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 500,
           "id": 50,
-          "value": 100,
-          "delay": 500
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 51,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 40,
-          "value": 30,
-          "delay": 0
+          "value": 30
         }
       ]
     },
@@ -374,59 +383,59 @@
       "name": "关闭全部",
       "nodes": [
         {
+          "delay": 0,
           "id": 1,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 2,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 3,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 4,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 10,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 11,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 12,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 30,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 31,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 43,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 60,
-          "value": 0,
-          "delay": 0
+          "value": 0
         }
       ]
     },
@@ -434,24 +443,24 @@
       "name": "打开所有灯光",
       "nodes": [
         {
+          "delay": 0,
           "id": 1,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 2,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 3,
-          "value": 100,
-          "delay": 0
+          "value": 100
         },
         {
+          "delay": 0,
           "id": 4,
-          "value": 100,
-          "delay": 0
+          "value": 100
         }
       ]
     },
@@ -459,24 +468,24 @@
       "name": "关闭所有灯光",
       "nodes": [
         {
+          "delay": 0,
           "id": 1,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 2,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 3,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 4,
-          "value": 0,
-          "delay": 0
+          "value": 0
         }
       ]
     },
@@ -484,19 +493,19 @@
       "name": "打开投影系统",
       "nodes": [
         {
+          "delay": 0,
           "id": 50,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 1000,
           "id": 10,
-          "value": 1,
-          "delay": 1000
+          "value": 1
         },
         {
+          "delay": 1500,
           "id": 11,
-          "value": 1,
-          "delay": 1500
+          "value": 1
         }
       ]
     },
@@ -504,19 +513,19 @@
       "name": "关闭投影系统",
       "nodes": [
         {
+          "delay": 0,
           "id": 10,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 0,
           "id": 11,
-          "value": 0,
-          "delay": 0
+          "value": 0
         },
         {
+          "delay": 2000,
           "id": 50,
-          "value": 100,
-          "delay": 2000
+          "value": 100
         }
       ]
     },
@@ -524,19 +533,19 @@
       "name": "夏季空调模式",
       "nodes": [
         {
+          "delay": 0,
           "id": 60,
-          "value": 1,
-          "delay": 0
+          "value": 1
         },
         {
+          "delay": 500,
           "id": 61,
-          "value": 24,
-          "delay": 500
+          "value": 24
         },
         {
+          "delay": 0,
           "id": 62,
-          "value": 1,
-          "delay": 0
+          "value": 1
         }
       ]
     },
@@ -544,21 +553,24 @@
       "name": "冬季空调模式",
       "nodes": [
         {
+          "delay": 0,
           "id": 60,
-          "value": 1,
-          "delay": 0
+          "value": 1
         },
         {
+          "delay": 500,
           "id": 61,
-          "value": 26,
-          "delay": 500
+          "value": 26
         },
         {
+          "delay": 0,
           "id": 62,
-          "value": 2,
-          "delay": 0
+          "value": 2
         }
       ]
     }
-  ]
+  ],
+  "web_server": {
+    "port": 18080
+  }
 }

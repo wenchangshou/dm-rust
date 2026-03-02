@@ -22,198 +22,195 @@ const emit = defineEmits<{
 const { t, locale, setLocale, languageOptions } = useI18n()
 
 const navItems = computed(() => [
-  { key: 'channels' as const, icon: '📡', label: t('sidebar.channels'), count: props.channelsCount },
-  { key: 'nodes' as const, icon: '🔌', label: t('sidebar.nodes'), count: props.nodesCount },
-  { key: 'scenes' as const, icon: '🎬', label: t('sidebar.scenes'), count: props.scenesCount }
+  {
+    key: 'channels' as const,
+    label: t('sidebar.channels'),
+    count: props.channelsCount,
+    icon: 'Connection'
+  },
+  {
+    key: 'nodes' as const,
+    label: t('sidebar.nodes'),
+    count: props.nodesCount,
+    icon: 'Cpu'
+  },
+  {
+    key: 'scenes' as const,
+    label: t('sidebar.scenes'),
+    count: props.scenesCount,
+    icon: 'Film'
+  }
 ])
 
-const onLocaleChange = (event: Event) => {
-  const next = (event.target as HTMLSelectElement).value as LocaleCode
+const onLocaleChange = (value: string) => {
+  const next = value as LocaleCode
   setLocale(next)
+}
+
+const onMenuSelect = (key: string) => {
+  emit('change-page', key as PageKey)
 }
 </script>
 
 <template>
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-icon">⚙</span>
-      <div>
-        <div class="brand-title">{{ t('sidebar.title') }}</div>
+  <aside class="enterprise-sidebar">
+    <div class="brand-panel">
+      <div class="brand-row">
+        <div class="brand-logo">
+          <el-icon><Operation /></el-icon>
+        </div>
+        <div>
+          <div class="brand-title">{{ t('sidebar.title') }}</div>
+          <div class="brand-subtitle">{{ t('app.subtitle') }}</div>
+        </div>
+      </div>
+
+      <div class="language-box">
+        <span>{{ t('sidebar.language') }}</span>
+        <el-select :model-value="locale" class="full-width" @change="onLocaleChange">
+          <el-option
+            v-for="option in languageOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
       </div>
     </div>
 
-    <div class="language-switcher">
-      <label>{{ t('sidebar.language') }}</label>
-      <select :value="locale" @change="onLocaleChange">
-        <option v-for="option in languageOptions" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-    </div>
-
-    <ul class="nav-list">
-      <li
-        v-for="item in navItems"
-        :key="item.key"
-        :class="{ active: activePage === item.key }"
-        @click="emit('change-page', item.key)"
-      >
-        <span class="icon">{{ item.icon }}</span>
+    <el-menu :default-active="activePage" class="nav-menu" @select="onMenuSelect">
+      <el-menu-item v-for="item in navItems" :key="item.key" :index="item.key">
+        <el-icon>
+          <component :is="item.icon" />
+        </el-icon>
         <span>{{ item.label }}</span>
-        <span class="count">{{ item.count }}</span>
-      </li>
-    </ul>
+        <el-tag class="count-tag" size="small" effect="dark">{{ item.count }}</el-tag>
+      </el-menu-item>
+    </el-menu>
 
-    <div class="actions">
-      <button class="btn btn-primary" :disabled="saving" @click="emit('save')">
+    <div class="ops-panel">
+      <div class="ops-title">{{ t('sidebar.operations') }}</div>
+      <el-button type="primary" :loading="saving" class="full-width" @click="emit('save')">
         {{ saving ? t('common.saving') : t('common.save') }}
-      </button>
-      <button class="btn btn-muted" :disabled="loading" @click="emit('reload')">
+      </el-button>
+      <el-button :loading="loading" class="full-width" @click="emit('reload')">
         {{ loading ? t('common.loading') : t('common.reload') }}
-      </button>
+      </el-button>
     </div>
   </aside>
 </template>
 
 <style scoped>
-.sidebar {
-  width: 270px;
-  min-width: 270px;
-  background: linear-gradient(170deg, #0f172a, #111827 62%, #1e293b);
-  color: #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid rgba(148, 163, 184, 0.2);
+.enterprise-sidebar {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: linear-gradient(180deg, #101e38 0%, #121f34 55%, #0f1a2d 100%);
+  color: #dbeafe;
 }
 
-.brand {
-  padding: 18px 16px 12px;
+.brand-panel {
+  padding: 18px 14px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  display: grid;
+  gap: 12px;
+}
+
+.brand-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.brand-icon {
-  font-size: 20px;
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  color: #eff6ff;
+  font-size: 16px;
 }
 
 .brand-title {
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  color: #f8fafc;
 }
 
-.language-switcher {
-  padding: 0 16px 12px;
-  display: flex;
-  flex-direction: column;
+.brand-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #93c5fd;
+  line-height: 1.4;
+}
+
+.language-box {
+  display: grid;
   gap: 6px;
 }
 
-.language-switcher label {
+.language-box span {
   font-size: 12px;
-  color: #94a3b8;
+  color: #93c5fd;
 }
 
-.language-switcher select {
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(15, 23, 42, 0.55);
-  color: #e2e8f0;
-  padding: 0 10px;
+.full-width {
+  width: 100%;
 }
 
-.nav-list {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
+.nav-menu {
+  border-right: none;
+  background: transparent;
+  padding: 8px;
 }
 
-.nav-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 8px;
-  min-height: 38px;
-  padding: 0 10px;
-  color: #cbd5e1;
-  cursor: pointer;
-  transition: all 0.2s ease;
+:deep(.nav-menu .el-menu-item) {
+  color: #dbeafe;
+  border-radius: 10px;
+  margin-bottom: 6px;
 }
 
-.nav-list li:hover {
-  background: rgba(148, 163, 184, 0.16);
+:deep(.nav-menu .el-menu-item:hover) {
+  background: rgba(37, 99, 235, 0.2);
 }
 
-.nav-list li.active {
+:deep(.nav-menu .el-menu-item.is-active) {
   background: linear-gradient(90deg, #2563eb, #1d4ed8);
   color: #f8fafc;
 }
 
-.icon {
-  font-size: 15px;
-}
-
-.count {
+.count-tag {
   margin-left: auto;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  min-width: 24px;
-  height: 20px;
-  padding: 0 7px;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 11px;
 }
 
-.actions {
-  padding: 14px;
+.ops-panel {
+  padding: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
   display: grid;
   gap: 8px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
-.btn {
-  height: 36px;
-  border-radius: 9px;
-  border: none;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+.ops-title {
+  font-size: 12px;
+  color: #93c5fd;
 }
 
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: linear-gradient(90deg, #3b82f6, #2563eb);
-  color: #eff6ff;
-}
-
-.btn-muted {
-  background: rgba(148, 163, 184, 0.15);
+:deep(.ops-panel .el-button:not(.el-button--primary)) {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.32);
   color: #e2e8f0;
-  border: 1px solid rgba(148, 163, 184, 0.26);
 }
 
 @media (max-width: 960px) {
-  .sidebar {
-    width: 100%;
-    min-width: 100%;
-    border-right: none;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  .enterprise-sidebar {
+    height: auto;
+    grid-template-rows: auto auto auto;
   }
 
-  .actions {
-    grid-template-columns: 1fr 1fr;
+  .nav-menu {
+    padding-top: 6px;
   }
 }
 </style>

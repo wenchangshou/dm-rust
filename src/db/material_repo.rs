@@ -17,7 +17,10 @@ pub struct MaterialRepository {
 
 impl MaterialRepository {
     pub fn new(pool: MySqlPool) -> Self {
-        Self { pool, resource_path: None }
+        Self {
+            pool,
+            resource_path: None,
+        }
     }
 
     /// 设置资源文件存储路径
@@ -146,15 +149,13 @@ impl MaterialRepository {
         let screen_id = req.screen_id.as_ref().unwrap_or(&existing.screen_id);
         let preset = req.preset.unwrap_or(existing.preset);
 
-        sqlx::query(
-            "UPDATE lspc_material SET name = ?, screen_id = ?, preset = ? WHERE id = ?"
-        )
-        .bind(name)
-        .bind(screen_id)
-        .bind(preset)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("UPDATE lspc_material SET name = ?, screen_id = ?, preset = ? WHERE id = ?")
+            .bind(name)
+            .bind(screen_id)
+            .bind(preset)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(Some(Material {
             id: id.to_string(),
@@ -210,11 +211,10 @@ impl MaterialRepository {
     /// 删除所有 Material（同时删除物理文件）
     pub async fn delete_all(&self) -> Result<u64> {
         // 获取所有 material 的 path
-        let paths: Vec<(String,)> = sqlx::query_as(
-            "SELECT path FROM lspc_material WHERE path != ''"
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let paths: Vec<(String,)> =
+            sqlx::query_as("SELECT path FROM lspc_material WHERE path != ''")
+                .fetch_all(&self.pool)
+                .await?;
 
         // 删除数据库记录
         let result = sqlx::query("DELETE FROM lspc_material")

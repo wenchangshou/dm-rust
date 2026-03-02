@@ -11,6 +11,7 @@ use axum::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 
 use crate::config::{Config, ResourceConfig};
 use crate::db::Database;
@@ -33,6 +34,7 @@ use super::file_api::{
 };
 use super::file_page::{CONFIG_MANAGER_HTML, DEBUG_CONSOLE_HTML, FILE_MANAGER_HTML};
 use super::resource_api::{serve_static_resource, upload_material, ResourceManagerState};
+use super::schema_api::{get_protocol_schema, list_protocol_schemas};
 #[cfg(feature = "swagger")]
 use super::swagger::swagger_routes;
 
@@ -125,11 +127,41 @@ impl WebServer {
                 get(config_manager_page),
             )
             .route(
+                &format!("{}/schema", API_PREFIX),
+                get(list_protocol_schemas),
+            )
+            .route(
+                &format!("{}/schema/:name", API_PREFIX),
+                get(get_protocol_schema),
+            )
+            .route(
                 &format!("{}/config/save", API_PREFIX),
                 post(move |body| save_config(body, config_path.clone())),
             )
             .nest(&format!("{}/device", API_PREFIX), device_routes)
             .layer(CorsLayer::permissive());
+
+        // 配置管理前端（Vue SPA）
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        let dist_config_path = exe_dir.join("dist-config");
+        // 也尝试当前工作目录下的 dist-config
+        let dist_config_path = if dist_config_path.exists() {
+            dist_config_path
+        } else {
+            std::path::PathBuf::from("dist-config")
+        };
+        if dist_config_path.exists() {
+            tracing::info!(
+                "配置管理前端已启用: /config/ (路径: {:?})",
+                dist_config_path
+            );
+            app = app.nest_service("/config", ServeDir::new(&dist_config_path));
+        } else {
+            tracing::warn!("dist-config 目录不存在，配置管理前端未启用。请先构建 config-ui: cd config-ui && npm run build");
+        }
 
         // 文件管理路由（可选）
         if let Some(ref fc) = file_config {
@@ -290,15 +322,10 @@ async fn get_config(config: Config) -> axum::Json<serde_json::Value> {
         "state": 0,
         "message": "成功",
         "data": {
+            "web_server": config.web_server,
             "nodes": config.nodes,
             "scenes": config.scenes,
-            "channels": config.channels.iter().map(|c| {
-                serde_json::json!({
-                    "channel_id": c.channel_id,
-                    "enable": c.enable,
-                    "statute": c.statute
-                })
-            }).collect::<Vec<_>>()
+            "channels": config.channels
         }
     });
 

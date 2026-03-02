@@ -2,25 +2,23 @@
 //!
 //! 提供素材上传、静态资源服务等操作接口
 
+use axum::body::Bytes;
 use axum::{
-    extract::{Extension, Multipart, Path},
     body::StreamBody,
-    http::{header, StatusCode, HeaderValue},
+    extract::{Extension, Multipart, Path},
+    http::{header, HeaderValue, StatusCode},
     response::IntoResponse,
     Json,
 };
-use axum::body::Bytes;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs;
 use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
-use crate::config::ResourceConfig;
-use crate::db::{
-    Database, CreateMaterialRequest, UploadMaterialResponse,
-};
 use super::response::ApiResponse;
+use crate::config::ResourceConfig;
+use crate::db::{CreateMaterialRequest, Database, UploadMaterialResponse};
 
 /// 错误码
 mod error_codes {
@@ -156,21 +154,25 @@ pub async fn upload_material(
         if field_name == "screenId" || field_name == "screen_id" {
             match field.text().await {
                 Ok(text) => screen_id = Some(text),
-                Err(e) => return Json(ApiResponse {
-                    state: error_codes::GENERAL_ERROR,
-                    message: format!("读取 screenId 失败: {}", e),
-                    data: None,
-                }),
+                Err(e) => {
+                    return Json(ApiResponse {
+                        state: error_codes::GENERAL_ERROR,
+                        message: format!("读取 screenId 失败: {}", e),
+                        data: None,
+                    })
+                }
             }
         } else if field.file_name().is_some() {
             let original_name = field.file_name().unwrap().to_string();
             match field.bytes().await {
                 Ok(data) => file_data = Some((original_name, data)),
-                Err(e) => return Json(ApiResponse {
-                    state: error_codes::GENERAL_ERROR,
-                    message: format!("读取上传数据失败: {}", e),
-                    data: None,
-                }),
+                Err(e) => {
+                    return Json(ApiResponse {
+                        state: error_codes::GENERAL_ERROR,
+                        message: format!("读取上传数据失败: {}", e),
+                        data: None,
+                    })
+                }
             }
         }
     }
@@ -178,39 +180,51 @@ pub async fn upload_material(
     // 验证必需参数
     let screen_id = match screen_id {
         Some(id) if !id.is_empty() => id,
-        _ => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "缺少 screenId 参数".to_string(),
-            data: None,
-        }),
+        _ => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "缺少 screenId 参数".to_string(),
+                data: None,
+            })
+        }
     };
 
     let (original_name, data) = match file_data {
         Some(f) => f,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "未找到上传文件".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "未找到上传文件".to_string(),
+                data: None,
+            })
+        }
     };
 
     // 验证 screenId 对应的屏幕是否存在
     match db.screens().find_by_id(&screen_id).await {
-        Ok(Some(_)) => {},
-        Ok(None) => return Json(ApiResponse {
-            state: error_codes::NOT_FOUND,
-            message: format!("屏幕不存在: {}", screen_id),
-            data: None,
-        }),
-        Err(e) => return Json(ApiResponse {
-            state: error_codes::GENERAL_ERROR,
-            message: format!("查询屏幕失败: {}", e),
-            data: None,
-        }),
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return Json(ApiResponse {
+                state: error_codes::NOT_FOUND,
+                message: format!("屏幕不存在: {}", screen_id),
+                data: None,
+            })
+        }
+        Err(e) => {
+            return Json(ApiResponse {
+                state: error_codes::GENERAL_ERROR,
+                message: format!("查询屏幕失败: {}", e),
+                data: None,
+            })
+        }
     }
 
     // 获取文件扩展名
-    let ext = original_name.rsplit('.').next().unwrap_or("").to_lowercase();
+    let ext = original_name
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_lowercase();
 
     // 生成唯一文件名
     let file_id = Uuid::new_v4().to_string();
@@ -283,7 +297,11 @@ pub async fn upload_material(
         }
     };
 
-    let url = format!("{}/{}", state.config.url_prefix.trim_end_matches('/'), relative_path);
+    let url = format!(
+        "{}/{}",
+        state.config.url_prefix.trim_end_matches('/'),
+        relative_path
+    );
     Json(ApiResponse {
         state: error_codes::SUCCESS,
         message: "上传成功".to_string(),
@@ -331,16 +349,14 @@ pub async fn serve_static_resource(
     let body = StreamBody::new(stream);
 
     // 根据文件扩展名确定 Content-Type
-    let ext = full_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let ext = full_path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let content_type = get_mime_type(ext);
 
-    let headers = [
-        (header::CONTENT_TYPE, HeaderValue::from_str(content_type)
-            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream"))),
-    ];
+    let headers = [(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    )];
 
     Ok((headers, body))
 }

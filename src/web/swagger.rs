@@ -6,23 +6,20 @@ use axum::Router;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::db::{
-    Screen, CreateScreenRequest, UpdateScreenRequest, BatchReplaceScreensRequest,
-    Material, MaterialResponse, CreateMaterialRequest, UpdateMaterialRequest, BatchReplaceMaterialsRequest,
-    UploadMaterialResponse, UploadMaterialRequest,
+use super::device_api::{
+    BatchReadItem, BatchReadRequest, BatchReadResultItem, CallMethodRequest, ChannelCommandRequest,
+    GetMethodsRequest, ReadManyRequest, ReadManyResultItem, ReadRequest,
+    SceneExecutionStatusResponse, SceneRequest, StatusRequest, SystemSettingsResponse,
+    WriteManyItem, WriteManyRequest, WriteManyResultItem, WriteRequest,
 };
 use super::response::{
-    ScreenApiResponse, ScreenListApiResponse,
-    MaterialSingleApiResponse, MaterialArrayApiResponse,
+    MaterialArrayApiResponse, MaterialSingleApiResponse, ScreenApiResponse, ScreenListApiResponse,
     UploadMaterialApiResponse,
 };
-use super::device_api::{
-    WriteRequest, WriteManyRequest, WriteManyItem, WriteManyResultItem,
-    ReadRequest, ReadManyRequest, ReadManyResultItem,
-    StatusRequest, SceneRequest, SceneExecutionStatusResponse, ChannelCommandRequest,
-    CallMethodRequest, GetMethodsRequest,
-    BatchReadRequest, BatchReadItem, BatchReadResultItem,
-    SystemSettingsResponse,
+use crate::db::{
+    BatchReplaceMaterialsRequest, BatchReplaceScreensRequest, CreateMaterialRequest,
+    CreateScreenRequest, Material, MaterialResponse, Screen, UpdateMaterialRequest,
+    UpdateScreenRequest, UploadMaterialRequest, UploadMaterialResponse,
 };
 
 /// OpenAPI 文档定义

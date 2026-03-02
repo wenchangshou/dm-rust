@@ -38,14 +38,14 @@ pub struct ScreenNjlgPlcProtocol {
 
 impl ScreenNjlgPlcProtocol {
     /// 构建控制命令
-    /// 
+    ///
     /// # 参数
     /// - device_id: 设备编号 (1-10)
     /// - operation: 操作 ("01"=开, "02"=关)
-    /// 
+    ///
     /// # 返回
     /// 21字节的完整命令
-    /// 
+    ///
     /// # 命令格式
     /// :00100B[X]000100[Y][CK]\r\n
     /// 其中:
@@ -58,20 +58,22 @@ impl ScreenNjlgPlcProtocol {
     /// - \r\n: 结束符
     fn build_command(device_id: u32, operation: &str) -> Result<Vec<u8>> {
         if device_id < 1 || device_id > 10 {
-            return Err(DeviceError::ConfigError(
-                format!("设备编号必须在 1-10 之间，实际: {}", device_id)
-            ));
+            return Err(DeviceError::ConfigError(format!(
+                "设备编号必须在 1-10 之间，实际: {}",
+                device_id
+            )));
         }
 
         if operation != OP_OPEN && operation != OP_CLOSE {
-            return Err(DeviceError::ConfigError(
-                format!("无效的操作码: {}, 应为 '01'(开) 或 '02'(关)", operation)
-            ));
+            return Err(DeviceError::ConfigError(format!(
+                "无效的操作码: {}, 应为 '01'(开) 或 '02'(关)",
+                operation
+            )));
         }
 
         // 设备编号转 ASCII (0-9)
         let device_char = ((device_id - 1) as u8 + b'0') as char;
-        
+
         // 操作码取第二个字符 (01 -> 1, 02 -> 2)
         let op_char = operation.chars().nth(1).unwrap();
 
@@ -102,14 +104,14 @@ impl ScreenNjlgPlcProtocol {
     }
 
     /// 从 ASCII 十六进制字符串计算 LRC 校验和
-    /// 
+    ///
     /// # 参数
     /// - ascii_str: ASCII 十六进制字符串（不含起始符、校验和、结束符）
     ///   例如: "0010000B0000100001"
-    /// 
+    ///
     /// # 返回
     /// LRC 校验和（8位）
-    /// 
+    ///
     /// # 算法
     /// 1. 将 ASCII 十六进制字符串转换为字节数组
     /// 2. 对所有字节求和
@@ -117,9 +119,10 @@ impl ScreenNjlgPlcProtocol {
     /// 4. 保留低8位
     fn calculate_lrc_from_ascii(ascii_str: &str) -> Result<u8> {
         if ascii_str.len() % 2 != 0 {
-            return Err(DeviceError::ConfigError(
-                format!("ASCII 字符串长度必须是偶数: {}", ascii_str.len())
-            ));
+            return Err(DeviceError::ConfigError(format!(
+                "ASCII 字符串长度必须是偶数: {}",
+                ascii_str.len()
+            )));
         }
 
         let mut sum: u8 = 0;
@@ -145,31 +148,32 @@ impl ScreenNjlgPlcProtocol {
     }
 
     /// 解析响应
-    /// 
+    ///
     /// # 参数
     /// - response: 17字节响应数据
-    /// 
+    ///
     /// # 返回
     /// 成功返回 true，失败返回 false
     fn parse_response(response: &[u8]) -> Result<bool> {
         if response.len() < RESPONSE_LENGTH {
-            return Err(DeviceError::ProtocolError(
-                format!("响应长度不足: {} < {}", response.len(), RESPONSE_LENGTH)
-            ));
+            return Err(DeviceError::ProtocolError(format!(
+                "响应长度不足: {} < {}",
+                response.len(),
+                RESPONSE_LENGTH
+            )));
         }
 
         // 检查起始符
         if response[0] != START_BYTE {
-            return Err(DeviceError::ProtocolError(
-                format!("起始符错误: 0x{:02X} != 0x3A", response[0])
-            ));
+            return Err(DeviceError::ProtocolError(format!(
+                "起始符错误: 0x{:02X} != 0x3A",
+                response[0]
+            )));
         }
 
         // 检查结束符
         if response[15] != END_BYTES[0] || response[16] != END_BYTES[1] {
-            return Err(DeviceError::ProtocolError(
-                "结束符错误".to_string()
-            ));
+            return Err(DeviceError::ProtocolError("结束符错误".to_string()));
         }
 
         // 提取数据部分 (不含起始符、校验和、结束符)
@@ -197,7 +201,7 @@ impl ScreenNjlgPlcProtocol {
     }
 
     /// 执行控制命令
-    /// 
+    ///
     /// # 参数
     /// - device_id: 设备编号
     /// - operation: 操作码
@@ -209,28 +213,24 @@ impl ScreenNjlgPlcProtocol {
         let addr = format!("{}:{}", self.addr, self.port);
         debug!("连接到 {}", addr);
 
-        let mut stream = tokio::time::timeout(
-            self.timeout,
-            TcpStream::connect(&addr)
-        )
-        .await
-        .map_err(|_| DeviceError::Timeout)?
-        .map_err(|e| DeviceError::ConnectionError(format!("连接失败: {}", e)))?;
+        let mut stream = tokio::time::timeout(self.timeout, TcpStream::connect(&addr))
+            .await
+            .map_err(|_| DeviceError::Timeout)?
+            .map_err(|e| DeviceError::ConnectionError(format!("连接失败: {}", e)))?;
 
         // 发送命令
         debug!("发送命令: {:02X?}", command);
-        stream.write_all(&command).await
+        stream
+            .write_all(&command)
+            .await
             .map_err(|e| DeviceError::ConnectionError(format!("发送失败: {}", e)))?;
 
         // 读取响应
         let mut response = vec![0u8; RESPONSE_LENGTH];
-        let n = tokio::time::timeout(
-            self.timeout,
-            stream.read(&mut response)
-        )
-        .await
-        .map_err(|_| DeviceError::Timeout)?
-        .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?;
+        let n = tokio::time::timeout(self.timeout, stream.read(&mut response))
+            .await
+            .map_err(|_| DeviceError::Timeout)?
+            .map_err(|e| DeviceError::ConnectionError(format!("读取失败: {}", e)))?;
 
         response.truncate(n);
         debug!("接收响应: {:02X?}", response);
@@ -323,7 +323,7 @@ impl Protocol for ScreenNjlgPlcProtocol {
     async fn read(&self, _device_id: u32) -> Result<i32> {
         // 该协议不支持读取状态
         Err(DeviceError::ProtocolError(
-            "南京龙港PLC协议不支持读取操作".to_string()
+            "南京龙港PLC协议不支持读取操作".to_string(),
         ))
     }
 
@@ -373,9 +373,12 @@ impl Protocol for ScreenNjlgPlcProtocol {
                 let operation = match action {
                     "open" => OP_OPEN,
                     "close" => OP_CLOSE,
-                    _ => return Err(DeviceError::Other(
-                        format!("无效的 action: {}, 应为 'open' 或 'close'", action)
-                    )),
+                    _ => {
+                        return Err(DeviceError::Other(format!(
+                            "无效的 action: {}, 应为 'open' 或 'close'",
+                            action
+                        )))
+                    }
                 };
 
                 let mut results = Vec::new();

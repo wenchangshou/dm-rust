@@ -4,9 +4,9 @@ use std::time::Duration;
 use tokio::sync::{broadcast, Mutex};
 use tracing::{info, warn};
 
+use super::{ChannelManager, DeviceController, DeviceEvent, NodeManager};
 use crate::config::SceneConfig;
-use crate::utils::{Result, DeviceError};
-use super::{ChannelManager, NodeManager, DeviceEvent, DeviceController};
+use crate::utils::{DeviceError, Result};
 
 /// 场景执行状态
 #[derive(Debug, Clone)]
@@ -44,24 +44,23 @@ impl SceneExecutor {
             current_executing: Arc::new(Mutex::new(None)),
         }
     }
-    
+
     /// 执行场景（异步启动，立即返回）
-    pub async fn execute(
-        &self,
-        scene_name: &str,
-        controller: &DeviceController,
-    ) -> Result<()> {
+    pub async fn execute(&self, scene_name: &str, controller: &DeviceController) -> Result<()> {
         // 查找场景
-        let scene = self.scenes.iter()
+        let scene = self
+            .scenes
+            .iter()
             .find(|s| s.name == scene_name)
             .ok_or_else(|| DeviceError::Other(format!("场景 '{}' 不存在", scene_name)))?;
 
         // 检查是否已有场景正在执行
         let mut current = self.current_executing.lock().await;
         if let Some(ref executing_scene) = *current {
-            return Err(DeviceError::Other(
-                format!("场景 '{}' 正在执行中，无法同时执行场景 '{}'", executing_scene, scene_name)
-            ));
+            return Err(DeviceError::Other(format!(
+                "场景 '{}' 正在执行中，无法同时执行场景 '{}'",
+                executing_scene, scene_name
+            )));
         }
 
         // 标记当前场景为正在执行
@@ -96,10 +95,16 @@ impl SceneExecutor {
                 // 执行写入
                 match controller_clone.write_node(member.id, member.value).await {
                     Ok(_) => {
-                        info!("场景 '{}': 节点 {} 设置为 {}", scene_name_str, member.id, member.value);
+                        info!(
+                            "场景 '{}': 节点 {} 设置为 {}",
+                            scene_name_str, member.id, member.value
+                        );
                     }
                     Err(e) => {
-                        warn!("场景 '{}': 节点 {} 设置失败: {:?}", scene_name_str, member.id, e);
+                        warn!(
+                            "场景 '{}': 节点 {} 设置失败: {:?}",
+                            scene_name_str, member.id, e
+                        );
                         success = false;
                     }
                 }
@@ -126,7 +131,7 @@ impl SceneExecutor {
         // 立即返回，不等待场景执行完成
         Ok(())
     }
-    
+
     /// 获取所有场景名称
     pub fn list_scenes(&self) -> Vec<String> {
         self.scenes.iter().map(|s| s.name.clone()).collect()

@@ -1,20 +1,20 @@
 //! 文件管理 API 处理器
 
 use axum::{
-    Json,
-    extract::{Extension, Multipart, Query},
     body::StreamBody,
-    http::{header, StatusCode, HeaderValue},
+    extract::{Extension, Multipart, Query},
+    http::{header, HeaderValue, StatusCode},
     response::IntoResponse,
+    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
 use tokio_util::io::ReaderStream;
 
+use super::response::ApiResponse;
 use crate::config::FileConfig;
 use crate::utils::error::error_codes;
-use super::response::ApiResponse;
 
 // ===== 状态和类型定义 =====
 
@@ -94,7 +94,8 @@ pub fn get_safe_path(base_path: &str, relative_path: &str) -> Option<PathBuf> {
 
 /// 根据文件扩展名获取 MIME 类型
 pub fn get_mime_type(path: &PathBuf) -> &'static str {
-    let ext = path.extension()
+    let ext = path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
@@ -194,30 +195,36 @@ pub async fn file_list(
 ) -> Json<ApiResponse<Vec<FileInfo>>> {
     let config = match check_config(&state) {
         Ok(c) => c,
-        Err(e) => return Json(ApiResponse {
-            state: e.0.state,
-            message: e.0.message,
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: e.0.state,
+                message: e.0.message,
+                data: None,
+            })
+        }
     };
 
     let relative_path = query.path.unwrap_or_default();
     let full_path = match get_safe_path(&config.path, &relative_path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     let mut entries = match fs::read_dir(&full_path).await {
         Ok(e) => e,
-        Err(e) => return Json(ApiResponse {
-            state: error_codes::GENERAL_ERROR,
-            message: format!("读取目录失败: {}", e),
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: error_codes::GENERAL_ERROR,
+                message: format!("读取目录失败: {}", e),
+                data: None,
+            })
+        }
     };
 
     let mut files = Vec::new();
@@ -249,12 +256,10 @@ pub async fn file_list(
     }
 
     // 按类型和名称排序：目录在前，文件在后
-    files.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    files.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 
     Json(ApiResponse {
@@ -272,21 +277,25 @@ pub async fn file_upload(
 ) -> Json<ApiResponse<Vec<String>>> {
     let config = match check_config(&state) {
         Ok(c) => c,
-        Err(e) => return Json(ApiResponse {
-            state: e.0.state,
-            message: e.0.message,
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: e.0.state,
+                message: e.0.message,
+                data: None,
+            })
+        }
     };
 
     let relative_path = query.path.unwrap_or_default();
     let base_path = match get_safe_path(&config.path, &relative_path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     let mut uploaded_files = Vec::new();
@@ -300,7 +309,11 @@ pub async fn file_upload(
         let file_path = base_path.join(&file_name);
 
         // 再次验证路径安全性
-        if !file_path.starts_with(&PathBuf::from(&config.path).canonicalize().unwrap_or_default()) {
+        if !file_path.starts_with(
+            &PathBuf::from(&config.path)
+                .canonicalize()
+                .unwrap_or_default(),
+        ) {
             continue;
         }
 
@@ -361,7 +374,8 @@ pub async fn file_download(
     let stream = ReaderStream::new(file);
     let body = StreamBody::new(stream);
 
-    let file_name = full_path.file_name()
+    let file_name = full_path
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("download")
         .to_string();
@@ -369,8 +383,15 @@ pub async fn file_download(
     let content_disposition = format!("attachment; filename=\"{}\"", file_name);
 
     let headers = [
-        (header::CONTENT_TYPE, HeaderValue::from_static("application/octet-stream")),
-        (header::CONTENT_DISPOSITION, HeaderValue::from_str(&content_disposition).unwrap_or_else(|_| HeaderValue::from_static("attachment"))),
+        (
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/octet-stream"),
+        ),
+        (
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&content_disposition)
+                .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
+        ),
     ];
 
     Ok((headers, body))
@@ -388,15 +409,21 @@ pub async fn file_delete(
 
     let full_path = match get_safe_path(&config.path, &payload.path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     // 防止删除根目录
-    if full_path == PathBuf::from(&config.path).canonicalize().unwrap_or_default() {
+    if full_path
+        == PathBuf::from(&config.path)
+            .canonicalize()
+            .unwrap_or_default()
+    {
         return Json(ApiResponse {
             state: error_codes::INVALID_PARAMS,
             message: "不能删除根目录".to_string(),
@@ -436,11 +463,13 @@ pub async fn file_mkdir(
 
     let full_path = match get_safe_path(&config.path, &payload.path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     match fs::create_dir_all(&full_path).await {
@@ -469,20 +498,24 @@ pub async fn file_rename(
 
     let old_path = match get_safe_path(&config.path, &payload.old_path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的源路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的源路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     let new_path = match get_safe_path(&config.path, &payload.new_path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的目标路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的目标路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     match fs::rename(&old_path, &new_path).await {
@@ -506,41 +539,50 @@ pub async fn file_info(
 ) -> Json<ApiResponse<FileInfo>> {
     let config = match check_config(&state) {
         Ok(c) => c,
-        Err(e) => return Json(ApiResponse {
-            state: e.0.state,
-            message: e.0.message,
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: e.0.state,
+                message: e.0.message,
+                data: None,
+            })
+        }
     };
 
     let relative_path = match &query.path {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "缺少 path 参数".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "缺少 path 参数".to_string(),
+                data: None,
+            })
+        }
     };
 
     let full_path = match get_safe_path(&config.path, relative_path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     let metadata = match fs::metadata(&full_path).await {
         Ok(m) => m,
-        Err(e) => return Json(ApiResponse {
-            state: error_codes::GENERAL_ERROR,
-            message: format!("获取文件信息失败: {}", e),
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: error_codes::GENERAL_ERROR,
+                message: format!("获取文件信息失败: {}", e),
+                data: None,
+            })
+        }
     };
 
-    let name = full_path.file_name()
+    let name = full_path
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_string();
@@ -598,9 +640,11 @@ pub async fn file_preview(
     // 根据文件扩展名确定 Content-Type
     let content_type = get_mime_type(&full_path);
 
-    let headers = [
-        (header::CONTENT_TYPE, HeaderValue::from_str(content_type).unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream"))),
-    ];
+    let headers = [(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    )];
 
     Ok((headers, body))
 }
@@ -612,29 +656,35 @@ pub async fn file_view(
 ) -> Json<ApiResponse<String>> {
     let config = match check_config(&state) {
         Ok(c) => c,
-        Err(e) => return Json(ApiResponse {
-            state: e.0.state,
-            message: e.0.message,
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: e.0.state,
+                message: e.0.message,
+                data: None,
+            })
+        }
     };
 
     let relative_path = match &query.path {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "缺少 path 参数".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "缺少 path 参数".to_string(),
+                data: None,
+            })
+        }
     };
 
     let full_path = match get_safe_path(&config.path, relative_path) {
         Some(p) => p,
-        None => return Json(ApiResponse {
-            state: error_codes::INVALID_PARAMS,
-            message: "无效的路径".to_string(),
-            data: None,
-        }),
+        None => {
+            return Json(ApiResponse {
+                state: error_codes::INVALID_PARAMS,
+                message: "无效的路径".to_string(),
+                data: None,
+            })
+        }
     };
 
     if !full_path.is_file() {
@@ -648,11 +698,13 @@ pub async fn file_view(
     // 限制文件大小（最大 10MB）
     let metadata = match fs::metadata(&full_path).await {
         Ok(m) => m,
-        Err(e) => return Json(ApiResponse {
-            state: error_codes::GENERAL_ERROR,
-            message: format!("获取文件信息失败: {}", e),
-            data: None,
-        }),
+        Err(e) => {
+            return Json(ApiResponse {
+                state: error_codes::GENERAL_ERROR,
+                message: format!("获取文件信息失败: {}", e),
+                data: None,
+            })
+        }
     };
 
     if metadata.len() > 10 * 1024 * 1024 {
@@ -673,7 +725,7 @@ pub async fn file_view(
             // 尝试以二进制方式读取并转为 base64
             match fs::read(&full_path).await {
                 Ok(bytes) => {
-                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    use base64::{engine::general_purpose::STANDARD, Engine as _};
                     let base64_content = STANDARD.encode(&bytes);
                     Json(ApiResponse {
                         state: error_codes::SUCCESS,

@@ -13,7 +13,6 @@
 /// let val = cache::get(channel_id, node_id);          // Option<i32>
 /// let val = cache::get_or(channel_id, node_id, 0);    // i32
 /// ```
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -153,12 +152,7 @@ pub fn set(channel_id: u32, key: u32, value: i32) {
 /// # 返回
 /// 缓存的值，若无缓存则返回 None
 pub fn get(channel_id: u32, key: u32) -> Option<i32> {
-    CACHE
-        .data
-        .lock()
-        .unwrap()
-        .get(&(channel_id, key))
-        .copied()
+    CACHE.data.lock().unwrap().get(&(channel_id, key)).copied()
 }
 
 /// 获取缓存值，若无缓存则返回默认值

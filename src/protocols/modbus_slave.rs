@@ -1,8 +1,8 @@
+use crate::protocols::Protocol;
+use crate::utils::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::protocols::Protocol;
-use crate::utils::Result;
 
 pub struct ModbusSlaveProtocol {
     channel_id: u32,
@@ -20,7 +20,7 @@ impl Protocol for ModbusSlaveProtocol {
         // TODO: 解析 device_list 和 map 配置
         Ok(Box::new(Self { channel_id }))
     }
-    
+
     async fn execute(&mut self, _command: &str, _params: Value) -> Result<Value> {
         Ok(serde_json::json!({"status": "ok"}))
     }
