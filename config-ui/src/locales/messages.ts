@@ -37,6 +37,7 @@ export const messages: Record<LocaleCode, Messages> = {
     },
     sidebar: {
       title: 'DM-Rust 配置中心',
+      overview: '总览',
       channels: '通道管理',
       nodes: '设备节点',
       scenes: '场景编排',
@@ -47,12 +48,13 @@ export const messages: Record<LocaleCode, Messages> = {
     },
     overview: {
       title: '系统总览',
-      desc: '集中管理通信通道、设备节点、场景和系统参数。',
+      desc: '集中查看系统统计数据和管理系统参数。',
       webPort: 'Web 服务端口',
       channels: '通道数',
       nodes: '节点数',
       scenes: '场景数',
-      protocols: '协议类型'
+      protocols: '协议类型',
+      systemSettings: '系统设置'
     },
     toast: {
       loaded: '配置加载成功',
@@ -216,6 +218,7 @@ export const messages: Record<LocaleCode, Messages> = {
     },
     sidebar: {
       title: 'DM-Rust Config Center',
+      overview: 'Overview',
       channels: 'Channels',
       nodes: 'Nodes',
       scenes: 'Scenes',
@@ -226,12 +229,13 @@ export const messages: Record<LocaleCode, Messages> = {
     },
     overview: {
       title: 'System Overview',
-      desc: 'Manage channels, nodes, scenes, and runtime settings in one place.',
+      desc: 'View system statistics and manage system parameters.',
       webPort: 'Web Server Port',
       channels: 'Channels',
       nodes: 'Nodes',
       scenes: 'Scenes',
-      protocols: 'Protocols'
+      protocols: 'Protocols',
+      systemSettings: 'System Settings'
     },
     toast: {
       loaded: 'Configuration loaded',

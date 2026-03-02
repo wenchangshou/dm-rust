@@ -35,6 +35,6 @@ export interface DeviceConfig {
   scenes: Scene[]
 }
 
-export type PageKey = 'channels' | 'nodes' | 'scenes'
+export type PageKey = 'overview' | 'channels' | 'nodes' | 'scenes'
 
 export type ToastType = 'success' | 'error'

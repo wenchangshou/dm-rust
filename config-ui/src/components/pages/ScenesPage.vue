@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from '../../composables/useI18n'
 import type { NodeItem, Scene, SceneNode, ToastType } from '../../types/config'
@@ -36,6 +36,19 @@ const filteredScenes = computed(() => {
   })
 })
 
+const scenePage = ref(1)
+const scenePageSize = ref(10)
+const scenePageSizeOptions = [10, 20, 50, 100]
+
+const pagedScenes = computed(() => {
+  const start = (scenePage.value - 1) * scenePageSize.value
+  return filteredScenes.value.slice(start, start + scenePageSize.value)
+})
+
+const sceneRowIndex = (index: number) => {
+  return (scenePage.value - 1) * scenePageSize.value + index + 1
+}
+
 const totalSteps = computed(() => props.scenes.reduce((sum, scene) => sum + scene.nodes.length, 0))
 
 const avgSteps = computed(() => {
@@ -49,6 +62,24 @@ const resetFilters = () => {
   keyword.value = ''
 }
 
+watch(keyword, () => {
+  scenePage.value = 1
+})
+
+watch(scenePageSize, () => {
+  scenePage.value = 1
+})
+
+watch(
+  () => filteredScenes.value.length,
+  (length) => {
+    const maxPage = Math.max(1, Math.ceil(length / scenePageSize.value))
+    if (scenePage.value > maxPage) {
+      scenePage.value = maxPage
+    }
+  }
+)
+
 const openCreate = () => {
   editingScene.value = {
     name: '',
@@ -58,8 +89,7 @@ const openCreate = () => {
   editorVisible.value = true
 }
 
-const openEdit = (index: number) => {
-  const target = filteredScenes.value[index]
+const openEdit = (target: Scene) => {
   if (!target) {
     return
   }
@@ -138,8 +168,7 @@ const save = () => {
   editorVisible.value = false
 }
 
-const remove = async (index: number) => {
-  const target = filteredScenes.value[index]
+const remove = async (target: Scene) => {
   if (!target) {
     return
   }
@@ -204,8 +233,7 @@ const updateStepField = (index: number, field: 'id' | 'value' | 'delay', val: nu
 const viewingScene = ref<Scene | null>(null)
 const viewerVisible = ref(false)
 
-const openViewer = (index: number) => {
-  const target = filteredScenes.value[index]
+const openViewer = (target: Scene) => {
   if (!target) return
   viewingScene.value = target
   viewerVisible.value = true
@@ -422,8 +450,8 @@ const doExecuteScene = async (sceneName: string) => {
     </el-card>
 
     <el-card v-if="filteredScenes.length" shadow="never">
-      <el-table :data="filteredScenes" stripe border>
-        <el-table-column type="index" width="60" />
+      <el-table :data="pagedScenes" stripe border>
+        <el-table-column type="index" width="60" :index="sceneRowIndex" />
 
         <el-table-column prop="name" :label="t('scenes.sceneName')" min-width="220" />
 
@@ -447,18 +475,28 @@ const doExecuteScene = async (sceneName: string) => {
         </el-table-column>
 
         <el-table-column :label="t('common.actions')" width="300" fixed="right">
-          <template #default="{ row, $index }">
+          <template #default="{ row }">
             <el-button
               type="primary" link
               :loading="executingScenes[row.name]"
               @click="doExecuteScene(row.name)"
             >{{ t('scenes.execute') }}</el-button>
-            <el-button type="success" link @click="openViewer($index)">{{ t('scenes.viewFlow') }}</el-button>
-            <el-button type="primary" link @click="openEdit($index)">{{ t('common.edit') }}</el-button>
-            <el-button type="danger" link @click="remove($index)">{{ t('common.delete') }}</el-button>
+            <el-button type="success" link @click="openViewer(row)">{{ t('scenes.viewFlow') }}</el-button>
+            <el-button type="primary" link @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button type="danger" link @click="remove(row)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="table-pagination">
+        <el-pagination
+          v-model:current-page="scenePage"
+          v-model:page-size="scenePageSize"
+          :page-sizes="scenePageSizeOptions"
+          :total="filteredScenes.length"
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </el-card>
 
     <el-empty v-else :description="t('scenes.empty')" />
@@ -743,6 +781,12 @@ const doExecuteScene = async (sceneName: string) => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.table-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .preview-tags {

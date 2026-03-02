@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from '../../composables/useI18n'
 import type { Channel, NodeItem, ToastType } from '../../types/config'
@@ -54,6 +54,19 @@ const filteredNodes = computed(() => {
     return combined.includes(key)
   })
 })
+
+const nodePage = ref(1)
+const nodePageSize = ref(10)
+const nodePageSizeOptions = [10, 20, 50, 100]
+
+const pagedNodes = computed(() => {
+  const start = (nodePage.value - 1) * nodePageSize.value
+  return filteredNodes.value.slice(start, start + nodePageSize.value)
+})
+
+const nodeRowIndex = (index: number) => {
+  return (nodePage.value - 1) * nodePageSize.value + index + 1
+}
 
 const channelCoverage = computed(() => new Set(props.nodes.map((node) => node.channel_id)).size)
 
@@ -116,6 +129,24 @@ const resetFilters = () => {
   channelFilter.value = 'all'
 }
 
+watch([keyword, channelFilter], () => {
+  nodePage.value = 1
+})
+
+watch(nodePageSize, () => {
+  nodePage.value = 1
+})
+
+watch(
+  () => filteredNodes.value.length,
+  (length) => {
+    const maxPage = Math.max(1, Math.ceil(length / nodePageSize.value))
+    if (nodePage.value > maxPage) {
+      nodePage.value = maxPage
+    }
+  }
+)
+
 const openCreate = () => {
   const firstChannel = props.channels[0]
   if (!firstChannel) {
@@ -137,8 +168,7 @@ const openCreate = () => {
   editorVisible.value = true
 }
 
-const openEdit = (index: number) => {
-  const target = filteredNodes.value[index]
+const openEdit = (target: NodeItem) => {
   if (!target) {
     return
   }
@@ -215,8 +245,7 @@ const save = () => {
   editorVisible.value = false
 }
 
-const remove = async (index: number) => {
-  const target = filteredNodes.value[index]
+const remove = async (target: NodeItem) => {
   if (!target) {
     return
   }
@@ -299,8 +328,8 @@ const channelLabel = (channelId: number) => {
     </el-card>
 
     <el-card v-if="filteredNodes.length" shadow="never">
-      <el-table :data="filteredNodes" stripe border>
-        <el-table-column type="index" width="60" />
+      <el-table :data="pagedNodes" stripe border>
+        <el-table-column type="index" width="60" :index="nodeRowIndex" />
 
         <el-table-column prop="global_id" :label="t('nodes.globalId')" min-width="120">
           <template #default="{ row }">
@@ -330,7 +359,7 @@ const channelLabel = (channelId: number) => {
         </el-table-column>
 
         <el-table-column :label="t('common.actions')" width="320" fixed="right">
-          <template #default="{ row, $index }">
+          <template #default="{ row }">
             <el-button
               type="info" link size="small"
               :loading="getNodeState(row.global_id).loading"
@@ -338,11 +367,21 @@ const channelLabel = (channelId: number) => {
             >{{ t('nodes.readStatus') }}</el-button>
             <el-button type="success" link size="small" @click="doWriteNode(row.global_id, 1)">{{ t('nodes.on') }}</el-button>
             <el-button type="warning" link size="small" @click="doWriteNode(row.global_id, 0)">{{ t('nodes.off') }}</el-button>
-            <el-button type="primary" link size="small" @click="openEdit($index)">{{ t('common.edit') }}</el-button>
-            <el-button type="danger" link size="small" @click="remove($index)">{{ t('common.delete') }}</el-button>
+            <el-button type="primary" link size="small" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button type="danger" link size="small" @click="remove(row)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="table-pagination">
+        <el-pagination
+          v-model:current-page="nodePage"
+          v-model:page-size="nodePageSize"
+          :page-sizes="nodePageSizeOptions"
+          :total="filteredNodes.length"
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </el-card>
 
     <el-empty v-else :description="t('nodes.empty')" />
@@ -431,6 +470,12 @@ const channelLabel = (channelId: number) => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.table-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .full-width {

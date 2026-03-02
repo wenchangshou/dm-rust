@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import enUs from 'element-plus/es/locale/lang/en'
 import AppSidebar from './components/base/AppSidebar.vue'
+import OverviewPage from './components/pages/OverviewPage.vue'
 import ChannelsPage from './components/pages/ChannelsPage.vue'
 import NodesPage from './components/pages/NodesPage.vue'
 import ScenesPage from './components/pages/ScenesPage.vue'
@@ -14,7 +15,7 @@ import { useSchemaRegistry } from './services/schemaRegistry'
 import type { Channel, NodeItem, PageKey, Scene, ToastType } from './types/config'
 import { logger } from './utils/logger'
 
-const activePage = ref<PageKey>('channels')
+const activePage = ref<PageKey>('overview')
 const lastSyncText = ref('-')
 
 const { t, locale } = useI18n()
@@ -41,6 +42,9 @@ const {
 const elementLocale = computed(() => (locale.value === 'en-US' ? enUs : zhCn))
 
 const pageMeta = computed(() => {
+  if (activePage.value === 'overview') {
+    return { title: t('overview.title'), desc: t('overview.desc') }
+  }
   if (activePage.value === 'channels') {
     return { title: t('sidebar.channels'), desc: t('channels.desc') }
   }
@@ -65,17 +69,6 @@ const notify = (message: string, type: ToastType = 'success') => {
 
 const onNotify = (payload: { message: string; type?: ToastType }) => {
   notify(payload.message, payload.type ?? 'success')
-}
-
-const normalizePort = () => {
-  const port = Number(webServer.value.port)
-  if (!Number.isFinite(port) || port < 1 || port > 65535) {
-    webServer.value.port = 18080
-    notify(t('toast.validationError', { message: `${t('overview.webPort')} 1-65535` }), 'error')
-    return
-  }
-
-  webServer.value.port = Math.round(port)
 }
 
 const preloadChannelSchemas = async () => {
@@ -225,31 +218,6 @@ onMounted(async () => {
                 </el-breadcrumb>
               </div>
             </el-card>
-
-            <div class="kpi-grid">
-              <el-card shadow="never" class="kpi-card">
-                <el-statistic :value="stats.channels" :title="t('overview.channels')" />
-              </el-card>
-              <el-card shadow="never" class="kpi-card">
-                <el-statistic :value="stats.nodes" :title="t('overview.nodes')" />
-              </el-card>
-              <el-card shadow="never" class="kpi-card">
-                <el-statistic :value="stats.scenes" :title="t('overview.scenes')" />
-              </el-card>
-              <el-card shadow="never" class="kpi-card protocol-card">
-                <el-statistic :value="protocolList.length" :title="t('overview.protocols')" />
-                <div class="port-editor">
-                  <span>{{ t('overview.webPort') }}</span>
-                  <el-input-number
-                    v-model="webServer.port"
-                    :min="1"
-                    :max="65535"
-                    controls-position="right"
-                    @change="normalizePort"
-                  />
-                </div>
-              </el-card>
-            </div>
           </el-header>
 
           <el-main class="main-content">
@@ -259,6 +227,15 @@ onMounted(async () => {
                 <p>{{ pageMeta.desc }}</p>
               </header>
 
+              <OverviewPage
+                v-if="activePage === 'overview'"
+                :channels-count="stats.channels"
+                :nodes-count="stats.nodes"
+                :scenes-count="stats.scenes"
+                :protocol-count="protocolList.length"
+                :web-port="webServer.port"
+                @update:web-port="(v) => { webServer.port = v }"
+              />
               <ChannelsPage
                 v-if="activePage === 'channels'"
                 :channels="channels"

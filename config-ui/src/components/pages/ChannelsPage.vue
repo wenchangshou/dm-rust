@@ -93,6 +93,19 @@ const filteredChannels = computed(() => {
   })
 })
 
+const channelPage = ref(1)
+const channelPageSize = ref(10)
+const channelPageSizeOptions = [10, 20, 50, 100]
+
+const pagedChannels = computed(() => {
+  const start = (channelPage.value - 1) * channelPageSize.value
+  return filteredChannels.value.slice(start, start + channelPageSize.value)
+})
+
+const channelRowIndex = (index: number) => {
+  return (channelPage.value - 1) * channelPageSize.value + index + 1
+}
+
 const currentSchema = computed<SchemaObject | null>(() => {
   const statute = editingChannel.value?.statute
   if (!statute) {
@@ -231,6 +244,24 @@ const resetFilters = () => {
   protocolFilter.value = 'all'
   statusFilter.value = 'all'
 }
+
+watch([keyword, protocolFilter, statusFilter], () => {
+  channelPage.value = 1
+})
+
+watch(channelPageSize, () => {
+  channelPage.value = 1
+})
+
+watch(
+  () => filteredChannels.value.length,
+  (length) => {
+    const maxPage = Math.max(1, Math.ceil(length / channelPageSize.value))
+    if (channelPage.value > maxPage) {
+      channelPage.value = maxPage
+    }
+  }
+)
 
 const destroyEditor = () => {
   if (jsonEditor) {
@@ -498,20 +529,24 @@ const openCreate = () => {
   logger.info('channels', 'open create channel', { channelId: nextId })
 }
 
-const openEdit = (index: number) => {
-  const target = props.channels[index]
+const openEdit = (target: Channel) => {
   if (!target) {
     return
   }
 
+  const sourceIndex = props.channels.findIndex((channel) => channel.channel_id === target.channel_id)
+  if (sourceIndex < 0) {
+    return
+  }
+
   editingChannel.value = deepClone(target)
-  editingIndex.value = index
+  editingIndex.value = sourceIndex
   editorTab.value = 'form'
   schemaError.value = ''
   syncRawFromArguments()
   editorVisible.value = true
   logger.info('channels', 'open edit channel', {
-    index,
+    index: sourceIndex,
     channelId: target.channel_id,
     statute: target.statute
   })
@@ -589,9 +624,13 @@ const save = () => {
   editorVisible.value = false
 }
 
-const remove = async (index: number) => {
-  const target = props.channels[index]
+const remove = async (target: Channel) => {
   if (!target) {
+    return
+  }
+
+  const sourceIndex = props.channels.findIndex((channel) => channel.channel_id === target.channel_id)
+  if (sourceIndex < 0) {
     return
   }
 
@@ -611,7 +650,7 @@ const remove = async (index: number) => {
   }
 
   const next = deepClone(props.channels)
-  next.splice(index, 1)
+  next.splice(sourceIndex, 1)
   emit('update:channels', next)
   logger.info('channels', 'delete channel success', { channelId: target.channel_id, total: next.length })
 }
@@ -660,8 +699,8 @@ const remove = async (index: number) => {
     </el-card>
 
     <el-card v-if="filteredChannels.length" shadow="never">
-      <el-table :data="filteredChannels" stripe border>
-        <el-table-column type="index" width="60" />
+      <el-table :data="pagedChannels" stripe border>
+        <el-table-column type="index" width="60" :index="channelRowIndex" />
 
         <el-table-column prop="channel_id" :label="t('channels.channelId')" min-width="110">
           <template #default="{ row }">
@@ -696,12 +735,22 @@ const remove = async (index: number) => {
         </el-table-column>
 
         <el-table-column :label="t('common.actions')" width="190" fixed="right">
-          <template #default="{ $index }">
-            <el-button type="primary" link @click="openEdit($index)">{{ t('common.edit') }}</el-button>
-            <el-button type="danger" link @click="remove($index)">{{ t('common.delete') }}</el-button>
+          <template #default="{ row }">
+            <el-button type="primary" link @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button type="danger" link @click="remove(row)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="table-pagination">
+        <el-pagination
+          v-model:current-page="channelPage"
+          v-model:page-size="channelPageSize"
+          :page-sizes="channelPageSizeOptions"
+          :total="filteredChannels.length"
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </el-card>
 
     <el-empty v-else :description="t('channels.empty')" />
@@ -875,6 +924,12 @@ const remove = async (index: number) => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.table-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .full-width {

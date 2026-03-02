@@ -23,6 +23,12 @@ const { t, locale, setLocale, languageOptions } = useI18n()
 
 const navItems = computed(() => [
   {
+    key: 'overview' as const,
+    label: t('sidebar.overview'),
+    count: null,
+    icon: 'DataBoard'
+  },
+  {
     key: 'channels' as const,
     label: t('sidebar.channels'),
     count: props.channelsCount,
@@ -84,7 +90,7 @@ const onMenuSelect = (key: string) => {
           <component :is="item.icon" />
         </el-icon>
         <span>{{ item.label }}</span>
-        <el-tag class="count-tag" size="small" effect="dark">{{ item.count }}</el-tag>
+        <el-tag v-if="item.count !== null" class="count-tag" size="small" effect="dark">{{ item.count }}</el-tag>
       </el-menu-item>
     </el-menu>
 

@@ -1,422 +1,510 @@
 {
-    "web_server": {
-        "port": 18080
-    },
     "channels": [
         {
-            "enable": true,
-            "channel_id": 1,
-            "statute": "tpris-pdu",
-            "description": "第一排",
             "arguments": {
                 "addr": "172.168.1.245",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 1,
+            "description": "第一排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 2,
-            "statute": "tpris-pdu",
-            "description": "第二排",
             "arguments": {
                 "addr": "172.168.1.243",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 2,
+            "description": "第二排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 3,
-            "statute": "tpris-pdu",
-            "description": "第三排",
             "arguments": {
                 "addr": "172.168.1.244",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 3,
+            "description": "第三排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 4,
-            "statute": "tpris-pdu",
-            "description": "第四排",
             "arguments": {
                 "addr": "172.168.1.242",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 4,
+            "description": "第四排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 5,
-            "statute": "tpris-pdu",
-            "description": "第五排",
             "arguments": {
                 "addr": "172.168.1.241",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 5,
+            "description": "第五排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 6,
-            "statute": "tpris-pdu",
-            "description": "第六排",
             "arguments": {
                 "addr": "172.168.1.240",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 6,
+            "description": "第六排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 7,
-            "statute": "tpris-pdu",
-            "description": "左边第一排",
             "arguments": {
                 "addr": "172.168.1.239",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 7,
+            "description": "左边第一排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 8,
-            "statute": "tpris-pdu",
-            "description": "左边第二排",
             "arguments": {
                 "addr": "172.168.1.238",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 8,
+            "description": "左边第二排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 9,
-            "statute": "tpris-pdu",
-            "description": "左边第三排",
             "arguments": {
                 "addr": "172.168.1.237",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 9,
+            "description": "左边第三排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 10,
-            "statute": "tpris-pdu",
-            "description": "左边第四排",
             "arguments": {
                 "addr": "172.168.1.236",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 10,
+            "description": "左边第四排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 11,
-            "statute": "tpris-pdu",
-            "description": "左边第五排",
             "arguments": {
                 "addr": "172.168.1.235",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 11,
+            "description": "左边第五排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 12,
-            "statute": "tpris-pdu",
-            "description": "左边第六排",
             "arguments": {
                 "addr": "172.168.1.234",
                 "port": 502,
                 "slave_id": 2
-            }
+            },
+            "auto_call": null,
+            "channel_id": 12,
+            "description": "左边第六排",
+            "enable": true,
+            "methods": null,
+            "statute": "tpris-pdu"
         },
         {
-            "enable": true,
-            "channel_id": 13,
-            "statute": "qn-smart-plc",
-            "description": "QN Smart PLC",
             "arguments": {
                 "addr": "172.168.1.229",
                 "port": 502,
                 "slave_id": 50
-            }
+            },
+            "auto_call": null,
+            "channel_id": 13,
+            "description": "QN Smart PLC",
+            "enable": true,
+            "methods": null,
+            "statute": "qn-smart-plc"
         },
         {
-            "enable": true,
-            "channel_id": 14,
-            "statute": "wdy-8en",
-            "description": "WDY-8EN 8路电源时序器",
             "arguments": {
                 "addr": "172.168.1.246",
-                "port": 1200,
-                "device_id": 0
-            }
+                "device_id": 0,
+                "port": 1200
+            },
+            "auto_call": null,
+            "channel_id": 14,
+            "description": "WDY-8EN 8路电源时序器",
+            "enable": true,
+            "methods": null,
+            "statute": "wdy-8en"
         },
         {
-            "enable": true,
-            "channel_id": 15,
-            "statute": "novastar",
-            "description": "Novastar LED控制器 (TCP)",
             "arguments": {
-                "type": "tcp",
-                "use_tcp": true,
                 "addr": "172.168.1.250",
-                "port": 15200
-            }
+                "port": 15200,
+                "type": "tcp",
+                "use_tcp": true
+            },
+            "auto_call": null,
+            "channel_id": 15,
+            "description": "Novastar LED控制器 (TCP)",
+            "enable": true,
+            "methods": null,
+            "statute": "novastar"
+        },
+        {
+            "arguments": {
+                "addr": "172.168.1.247",
+                "device_id": 0,
+                "port": 1200
+            },
+            "auto_call": null,
+            "channel_id": 16,
+            "description": "WDY-8EN 8路电源时序器2",
+            "enable": true,
+            "methods": null,
+            "statute": "wdy-8en"
         }
     ],
     "nodes": [
         {
-            "global_id": 1,
-            "channel_id": 15,
-            "id": 1,
+            "alias": "Novastar-场景1",
             "category": "scene",
-            "alias": "Novastar-场景1"
+            "channel_id": 15,
+            "global_id": 1,
+            "id": 1
         },
         {
+            "alias": "第一排-开关1",
+            "channel_id": 1,
             "global_id": 2,
-            "channel_id": 1,
-            "id": 1,
-            "alias": "第一排-开关1"
+            "id": 1
         },
         {
+            "alias": "第一排-开关2",
+            "channel_id": 1,
             "global_id": 3,
-            "channel_id": 1,
-            "id": 2,
-            "alias": "第一排-开关2"
+            "id": 2
         },
         {
+            "alias": "第二排-开关1",
+            "channel_id": 2,
             "global_id": 4,
-            "channel_id": 2,
-            "id": 1,
-            "alias": "第二排-开关1"
+            "id": 1
         },
         {
+            "alias": "第二排-开关2",
+            "channel_id": 2,
             "global_id": 5,
-            "channel_id": 2,
-            "id": 2,
-            "alias": "第二排-开关2"
+            "id": 2
         },
         {
+            "alias": "第三排-开关1",
+            "channel_id": 3,
             "global_id": 6,
-            "channel_id": 3,
-            "id": 1,
-            "alias": "第三排-开关1"
+            "id": 1
         },
         {
+            "alias": "第三排-开关2",
+            "channel_id": 3,
             "global_id": 7,
-            "channel_id": 3,
-            "id": 2,
-            "alias": "第三排-开关2"
+            "id": 2
         },
         {
+            "alias": "第四排-开关1",
+            "channel_id": 4,
             "global_id": 8,
-            "channel_id": 4,
-            "id": 1,
-            "alias": "第四排-开关1"
+            "id": 1
         },
         {
+            "alias": "第四排-开关2",
+            "channel_id": 4,
             "global_id": 9,
-            "channel_id": 4,
-            "id": 2,
-            "alias": "第四排-开关2"
+            "id": 2
         },
         {
+            "alias": "第五排-开关1",
+            "channel_id": 5,
             "global_id": 10,
-            "channel_id": 5,
-            "id": 1,
-            "alias": "第五排-开关1"
+            "id": 1
         },
         {
+            "alias": "第五排-开关2",
+            "channel_id": 5,
             "global_id": 11,
-            "channel_id": 5,
-            "id": 2,
-            "alias": "第五排-开关2"
+            "id": 2
         },
         {
+            "alias": "第六排-开关1",
+            "channel_id": 6,
             "global_id": 12,
-            "channel_id": 6,
-            "id": 1,
-            "alias": "第六排-开关1"
+            "id": 1
         },
         {
+            "alias": "第六排-开关2",
+            "channel_id": 6,
             "global_id": 13,
-            "channel_id": 6,
-            "id": 2,
-            "alias": "第六排-开关2"
+            "id": 2
         },
         {
+            "alias": "左边第一排-开关1",
+            "channel_id": 7,
             "global_id": 14,
-            "channel_id": 7,
-            "id": 1,
-            "alias": "左边第一排-开关1"
+            "id": 1
         },
         {
+            "alias": "左边第一排-开关2",
+            "channel_id": 7,
             "global_id": 15,
-            "channel_id": 7,
-            "id": 2,
-            "alias": "左边第一排-开关2"
+            "id": 2
         },
         {
+            "alias": "左边第二排-开关1",
+            "channel_id": 8,
             "global_id": 16,
-            "channel_id": 8,
-            "id": 1,
-            "alias": "左边第二排-开关1"
+            "id": 1
         },
         {
+            "alias": "左边第二排-开关2",
+            "channel_id": 8,
             "global_id": 17,
-            "channel_id": 8,
-            "id": 2,
-            "alias": "左边第二排-开关2"
+            "id": 2
         },
         {
+            "alias": "左边第三排-开关1",
+            "channel_id": 9,
             "global_id": 18,
-            "channel_id": 9,
-            "id": 1,
-            "alias": "左边第三排-开关1"
+            "id": 1
         },
         {
+            "alias": "左边第三排-开关2",
+            "channel_id": 9,
             "global_id": 19,
-            "channel_id": 9,
-            "id": 2,
-            "alias": "左边第三排-开关2"
+            "id": 2
         },
         {
+            "alias": "左边第四排-开关1",
+            "channel_id": 10,
             "global_id": 20,
-            "channel_id": 10,
-            "id": 1,
-            "alias": "左边第四排-开关1"
+            "id": 1
         },
         {
+            "alias": "左边第四排-开关2",
+            "channel_id": 10,
             "global_id": 21,
-            "channel_id": 10,
-            "id": 2,
-            "alias": "左边第四排-开关2"
+            "id": 2
         },
         {
+            "alias": "左边第五排-开关1",
+            "channel_id": 11,
             "global_id": 22,
-            "channel_id": 11,
-            "id": 1,
-            "alias": "左边第五排-开关1"
+            "id": 1
         },
         {
+            "alias": "左边第五排-开关2",
+            "channel_id": 11,
             "global_id": 23,
-            "channel_id": 11,
-            "id": 2,
-            "alias": "左边第五排-开关2"
+            "id": 2
         },
         {
+            "alias": "左边第六排-开关1",
+            "channel_id": 12,
             "global_id": 24,
-            "channel_id": 12,
-            "id": 1,
-            "alias": "左边第六排-开关1"
+            "id": 1
         },
         {
+            "alias": "左边第六排-开关2",
+            "channel_id": 12,
             "global_id": 25,
-            "channel_id": 12,
-            "id": 2,
-            "alias": "左边第六排-开关2"
+            "id": 2
         },
         {
+            "alias": "PLC-CH1",
+            "channel_id": 13,
             "global_id": 26,
-            "channel_id": 13,
-            "id": 1,
-            "alias": "PLC-CH1"
+            "id": 1
         },
         {
+            "alias": "PLC-CH2",
+            "channel_id": 13,
             "global_id": 27,
-            "channel_id": 13,
-            "id": 2,
-            "alias": "PLC-CH2"
+            "id": 2
         },
         {
+            "alias": "PLC-CH3",
+            "channel_id": 13,
             "global_id": 28,
-            "channel_id": 13,
-            "id": 3,
-            "alias": "PLC-CH3"
+            "id": 3
         },
         {
+            "alias": "PLC-CH4",
+            "channel_id": 13,
             "global_id": 29,
-            "channel_id": 13,
-            "id": 4,
-            "alias": "PLC-CH4"
+            "id": 4
         },
         {
+            "alias": "PLC-CH5",
+            "channel_id": 13,
             "global_id": 30,
-            "channel_id": 13,
-            "id": 5,
-            "alias": "PLC-CH5"
+            "id": 5
         },
         {
+            "alias": "PLC-CH6",
+            "channel_id": 13,
             "global_id": 31,
-            "channel_id": 13,
-            "id": 6,
-            "alias": "PLC-CH6"
+            "id": 6
         },
         {
+            "alias": "PLC-CH7",
+            "channel_id": 13,
             "global_id": 32,
-            "channel_id": 13,
-            "id": 7,
-            "alias": "PLC-CH7"
+            "id": 7
         },
         {
+            "alias": "PLC-CH8",
+            "channel_id": 13,
             "global_id": 33,
-            "channel_id": 13,
-            "id": 8,
-            "alias": "PLC-CH8"
+            "id": 8
         },
         {
+            "alias": "时序器-CH1",
+            "channel_id": 14,
             "global_id": 34,
-            "channel_id": 14,
-            "id": 1,
-            "alias": "时序器-CH1"
+            "id": 1
         },
         {
+            "alias": "时序器-CH2",
+            "channel_id": 14,
             "global_id": 35,
-            "channel_id": 14,
-            "id": 2,
-            "alias": "时序器-CH2"
+            "id": 2
         },
         {
+            "alias": "时序器-CH3",
+            "channel_id": 14,
             "global_id": 36,
-            "channel_id": 14,
-            "id": 3,
-            "alias": "时序器-CH3"
+            "id": 3
         },
         {
+            "alias": "时序器-CH4",
+            "channel_id": 14,
             "global_id": 37,
-            "channel_id": 14,
-            "id": 4,
-            "alias": "时序器-CH4"
+            "id": 4
         },
         {
+            "alias": "时序器-CH5",
+            "channel_id": 14,
             "global_id": 38,
-            "channel_id": 14,
-            "id": 5,
-            "alias": "时序器-CH5"
+            "id": 5
         },
         {
+            "alias": "时序器-CH6",
+            "channel_id": 14,
             "global_id": 39,
-            "channel_id": 14,
-            "id": 6,
-            "alias": "时序器-CH6"
+            "id": 6
         },
         {
+            "alias": "时序器-CH7",
+            "channel_id": 14,
             "global_id": 40,
-            "channel_id": 14,
-            "id": 7,
-            "alias": "时序器-CH7"
+            "id": 7
         },
         {
-            "global_id": 41,
+            "alias": "时序器-CH8",
             "channel_id": 14,
-            "id": 8,
-            "alias": "时序器-CH8"
+            "global_id": 41,
+            "id": 8
+        },
+        {
+            "alias": "时序器2-CH1",
+            "channel_id": 16,
+            "global_id": 42,
+            "id": 1
+        },
+        {
+            "alias": "时序器2-CH2",
+            "channel_id": 16,
+            "global_id": 43,
+            "id": 2
+        },
+        {
+            "alias": "时序器2-CH3",
+            "channel_id": 16,
+            "global_id": 44,
+            "id": 3
+        },
+        {
+            "alias": "时序器2-CH4",
+            "channel_id": 16,
+            "global_id": 45,
+            "id": 4
+        },
+        {
+            "alias": "时序器2-CH5",
+            "channel_id": 16,
+            "global_id": 46,
+            "id": 5
+        },
+        {
+            "alias": "时序器2-CH6",
+            "channel_id": 16,
+            "global_id": 47,
+            "id": 6
+        },
+        {
+            "alias": "时序器2-CH7",
+            "channel_id": 16,
+            "global_id": 48,
+            "id": 7
+        },
+        {
+            "alias": "时序器2-CH8",
+            "channel_id": 16,
+            "global_id": 49,
+            "id": 8
         }
     ],
     "scenes": [
@@ -424,64 +512,64 @@
             "name": "open_all_pdu",
             "nodes": [
                 {
+                    "delay": 0,
                     "id": 2,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 4,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 6,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 8,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 10,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 12,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 14,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 16,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 18,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 20,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 22,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 0,
                     "id": 24,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 }
             ]
         },
@@ -489,64 +577,64 @@
             "name": "close_all_pdu",
             "nodes": [
                 {
+                    "delay": 0,
                     "id": 2,
-                    "value": 0,
-                    "delay": 0
+                    "value": 0
                 },
                 {
+                    "delay": 100,
                     "id": 4,
-                    "value": 0,
-                    "delay": 100
+                    "value": 0
                 },
                 {
+                    "delay": 200,
                     "id": 6,
-                    "value": 0,
-                    "delay": 200
+                    "value": 0
                 },
                 {
+                    "delay": 300,
                     "id": 8,
-                    "value": 0,
-                    "delay": 300
+                    "value": 0
                 },
                 {
+                    "delay": 400,
                     "id": 10,
-                    "value": 0,
-                    "delay": 400
+                    "value": 0
                 },
                 {
+                    "delay": 500,
                     "id": 12,
-                    "value": 0,
-                    "delay": 500
+                    "value": 0
                 },
                 {
+                    "delay": 600,
                     "id": 14,
-                    "value": 0,
-                    "delay": 600
+                    "value": 0
                 },
                 {
+                    "delay": 700,
                     "id": 16,
-                    "value": 0,
-                    "delay": 700
+                    "value": 0
                 },
                 {
+                    "delay": 800,
                     "id": 18,
-                    "value": 0,
-                    "delay": 800
+                    "value": 0
                 },
                 {
+                    "delay": 900,
                     "id": 20,
-                    "value": 0,
-                    "delay": 900
+                    "value": 0
                 },
                 {
+                    "delay": 1000,
                     "id": 22,
-                    "value": 0,
-                    "delay": 1000
+                    "value": 0
                 },
                 {
+                    "delay": 1100,
                     "id": 24,
-                    "value": 0,
-                    "delay": 1100
+                    "value": 0
                 }
             ]
         },
@@ -554,44 +642,44 @@
             "name": "open_all_plc",
             "nodes": [
                 {
+                    "delay": 0,
                     "id": 26,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 1000,
                     "id": 27,
-                    "value": 1,
-                    "delay": 100
+                    "value": 1
                 },
                 {
+                    "delay": 2000,
                     "id": 28,
-                    "value": 1,
-                    "delay": 200
+                    "value": 1
                 },
                 {
+                    "delay": 3000,
                     "id": 29,
-                    "value": 1,
-                    "delay": 300
+                    "value": 1
                 },
                 {
+                    "delay": 4000,
                     "id": 30,
-                    "value": 1,
-                    "delay": 400
+                    "value": 1
                 },
                 {
+                    "delay": 5000,
                     "id": 31,
-                    "value": 1,
-                    "delay": 500
+                    "value": 1
                 },
                 {
+                    "delay": 6000,
                     "id": 32,
-                    "value": 1,
-                    "delay": 600
+                    "value": 1
                 },
                 {
+                    "delay": 7000,
                     "id": 33,
-                    "value": 1,
-                    "delay": 700
+                    "value": 1
                 }
             ]
         },
@@ -599,44 +687,44 @@
             "name": "close_all_plc",
             "nodes": [
                 {
+                    "delay": 0,
                     "id": 26,
-                    "value": 0,
-                    "delay": 0
+                    "value": 0
                 },
                 {
+                    "delay": 1000,
                     "id": 27,
-                    "value": 0,
-                    "delay": 100
+                    "value": 0
                 },
                 {
+                    "delay": 2000,
                     "id": 28,
-                    "value": 0,
-                    "delay": 200
+                    "value": 0
                 },
                 {
+                    "delay": 3000,
                     "id": 29,
-                    "value": 0,
-                    "delay": 300
+                    "value": 0
                 },
                 {
+                    "delay": 4000,
                     "id": 30,
-                    "value": 0,
-                    "delay": 400
+                    "value": 0
                 },
                 {
+                    "delay": 5000,
                     "id": 31,
-                    "value": 0,
-                    "delay": 500
+                    "value": 0
                 },
                 {
+                    "delay": 6000,
                     "id": 32,
-                    "value": 0,
-                    "delay": 600
+                    "value": 0
                 },
                 {
+                    "delay": 7000,
                     "id": 33,
-                    "value": 0,
-                    "delay": 700
+                    "value": 0
                 }
             ]
         },
@@ -644,44 +732,84 @@
             "name": "open_all_wdy8en",
             "nodes": [
                 {
+                    "delay": 0,
                     "id": 34,
-                    "value": 1,
-                    "delay": 0
+                    "value": 1
                 },
                 {
+                    "delay": 100,
                     "id": 35,
-                    "value": 1,
-                    "delay": 100
+                    "value": 1
                 },
                 {
+                    "delay": 200,
                     "id": 36,
-                    "value": 1,
-                    "delay": 200
+                    "value": 1
                 },
                 {
+                    "delay": 300,
                     "id": 37,
-                    "value": 1,
-                    "delay": 300
+                    "value": 1
                 },
                 {
+                    "delay": 400,
                     "id": 38,
-                    "value": 1,
-                    "delay": 400
+                    "value": 1
                 },
                 {
+                    "delay": 500,
                     "id": 39,
-                    "value": 1,
-                    "delay": 500
+                    "value": 1
                 },
                 {
+                    "delay": 600,
                     "id": 40,
-                    "value": 1,
-                    "delay": 600
+                    "value": 1
                 },
                 {
+                    "delay": 700,
                     "id": 41,
-                    "value": 1,
-                    "delay": 700
+                    "value": 1
+                },
+                {
+                    "delay": 800,
+                    "id": 42,
+                    "value": 1
+                },
+                {
+                    "delay": 900,
+                    "id": 43,
+                    "value": 1
+                },
+                {
+                    "delay": 1000,
+                    "id": 44,
+                    "value": 1
+                },
+                {
+                    "delay": 1100,
+                    "id": 45,
+                    "value": 1
+                },
+                {
+                    "delay": 1200,
+                    "id": 46,
+                    "value": 1
+                },
+                {
+                    "delay": 1300,
+                    "id": 47,
+                    "value": 1
+                },
+                {
+                    "delay": 1400,
+                    "id": 48,
+                    "value": 1
+                },
+                {
+                    "delay": 1500,
+                    "id": 49,
+                    "value": 1
                 }
             ]
         },
@@ -689,46 +817,89 @@
             "name": "close_all_wdy8en",
             "nodes": [
                 {
+                    "delay": 0,
                     "id": 34,
-                    "value": 0,
-                    "delay": 0
+                    "value": 0
                 },
                 {
+                    "delay": 100,
                     "id": 35,
-                    "value": 0,
-                    "delay": 100
+                    "value": 0
                 },
                 {
+                    "delay": 200,
                     "id": 36,
-                    "value": 0,
-                    "delay": 200
+                    "value": 0
                 },
                 {
+                    "delay": 300,
                     "id": 37,
-                    "value": 0,
-                    "delay": 300
+                    "value": 0
                 },
                 {
+                    "delay": 400,
                     "id": 38,
-                    "value": 0,
-                    "delay": 400
+                    "value": 0
                 },
                 {
+                    "delay": 500,
                     "id": 39,
-                    "value": 0,
-                    "delay": 500
+                    "value": 0
                 },
                 {
+                    "delay": 600,
                     "id": 40,
-                    "value": 0,
-                    "delay": 600
+                    "value": 0
                 },
                 {
+                    "delay": 700,
                     "id": 41,
-                    "value": 0,
-                    "delay": 700
+                    "value": 0
+                },
+                {
+                    "delay": 800,
+                    "id": 42,
+                    "value": 0
+                },
+                {
+                    "delay": 900,
+                    "id": 43,
+                    "value": 0
+                },
+                {
+                    "delay": 1000,
+                    "id": 44,
+                    "value": 0
+                },
+                {
+                    "delay": 1100,
+                    "id": 45,
+                    "value": 0
+                },
+                {
+                    "delay": 1200,
+                    "id": 46,
+                    "value": 0
+                },
+                {
+                    "delay": 1300,
+                    "id": 47,
+                    "value": 0
+                },
+                {
+                    "delay": 1400,
+                    "id": 48,
+                    "value": 0
+                },
+                {
+                    "delay": 1500,
+                    "id": 49,
+                    "value": 0
                 }
             ]
         }
-    ]
+    ],
+    "web_server": {
+        "port": 18080
+    }
 }
