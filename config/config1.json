@@ -1,0 +1,734 @@
+{
+    "web_server": {
+        "port": 18080
+    },
+    "channels": [
+        {
+            "enable": true,
+            "channel_id": 1,
+            "statute": "tpris-pdu",
+            "description": "第一排",
+            "arguments": {
+                "addr": "172.168.1.245",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 2,
+            "statute": "tpris-pdu",
+            "description": "第二排",
+            "arguments": {
+                "addr": "172.168.1.243",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 3,
+            "statute": "tpris-pdu",
+            "description": "第三排",
+            "arguments": {
+                "addr": "172.168.1.244",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 4,
+            "statute": "tpris-pdu",
+            "description": "第四排",
+            "arguments": {
+                "addr": "172.168.1.242",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 5,
+            "statute": "tpris-pdu",
+            "description": "第五排",
+            "arguments": {
+                "addr": "172.168.1.241",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 6,
+            "statute": "tpris-pdu",
+            "description": "第六排",
+            "arguments": {
+                "addr": "172.168.1.240",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 7,
+            "statute": "tpris-pdu",
+            "description": "左边第一排",
+            "arguments": {
+                "addr": "172.168.1.239",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 8,
+            "statute": "tpris-pdu",
+            "description": "左边第二排",
+            "arguments": {
+                "addr": "172.168.1.238",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 9,
+            "statute": "tpris-pdu",
+            "description": "左边第三排",
+            "arguments": {
+                "addr": "172.168.1.237",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 10,
+            "statute": "tpris-pdu",
+            "description": "左边第四排",
+            "arguments": {
+                "addr": "172.168.1.236",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 11,
+            "statute": "tpris-pdu",
+            "description": "左边第五排",
+            "arguments": {
+                "addr": "172.168.1.235",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 12,
+            "statute": "tpris-pdu",
+            "description": "左边第六排",
+            "arguments": {
+                "addr": "172.168.1.234",
+                "port": 502,
+                "slave_id": 2
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 13,
+            "statute": "qn-smart-plc",
+            "description": "QN Smart PLC",
+            "arguments": {
+                "addr": "172.168.1.229",
+                "port": 502,
+                "slave_id": 50
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 14,
+            "statute": "wdy-8en",
+            "description": "WDY-8EN 8路电源时序器",
+            "arguments": {
+                "addr": "172.168.1.246",
+                "port": 1200,
+                "device_id": 0
+            }
+        },
+        {
+            "enable": true,
+            "channel_id": 15,
+            "statute": "novastar",
+            "description": "Novastar LED控制器 (TCP)",
+            "arguments": {
+                "type": "tcp",
+                "use_tcp": true,
+                "addr": "172.168.1.250",
+                "port": 15200
+            }
+        }
+    ],
+    "nodes": [
+        {
+            "global_id": 1,
+            "channel_id": 15,
+            "id": 1,
+            "category": "scene",
+            "alias": "Novastar-场景1"
+        },
+        {
+            "global_id": 2,
+            "channel_id": 1,
+            "id": 1,
+            "alias": "第一排-开关1"
+        },
+        {
+            "global_id": 3,
+            "channel_id": 1,
+            "id": 2,
+            "alias": "第一排-开关2"
+        },
+        {
+            "global_id": 4,
+            "channel_id": 2,
+            "id": 1,
+            "alias": "第二排-开关1"
+        },
+        {
+            "global_id": 5,
+            "channel_id": 2,
+            "id": 2,
+            "alias": "第二排-开关2"
+        },
+        {
+            "global_id": 6,
+            "channel_id": 3,
+            "id": 1,
+            "alias": "第三排-开关1"
+        },
+        {
+            "global_id": 7,
+            "channel_id": 3,
+            "id": 2,
+            "alias": "第三排-开关2"
+        },
+        {
+            "global_id": 8,
+            "channel_id": 4,
+            "id": 1,
+            "alias": "第四排-开关1"
+        },
+        {
+            "global_id": 9,
+            "channel_id": 4,
+            "id": 2,
+            "alias": "第四排-开关2"
+        },
+        {
+            "global_id": 10,
+            "channel_id": 5,
+            "id": 1,
+            "alias": "第五排-开关1"
+        },
+        {
+            "global_id": 11,
+            "channel_id": 5,
+            "id": 2,
+            "alias": "第五排-开关2"
+        },
+        {
+            "global_id": 12,
+            "channel_id": 6,
+            "id": 1,
+            "alias": "第六排-开关1"
+        },
+        {
+            "global_id": 13,
+            "channel_id": 6,
+            "id": 2,
+            "alias": "第六排-开关2"
+        },
+        {
+            "global_id": 14,
+            "channel_id": 7,
+            "id": 1,
+            "alias": "左边第一排-开关1"
+        },
+        {
+            "global_id": 15,
+            "channel_id": 7,
+            "id": 2,
+            "alias": "左边第一排-开关2"
+        },
+        {
+            "global_id": 16,
+            "channel_id": 8,
+            "id": 1,
+            "alias": "左边第二排-开关1"
+        },
+        {
+            "global_id": 17,
+            "channel_id": 8,
+            "id": 2,
+            "alias": "左边第二排-开关2"
+        },
+        {
+            "global_id": 18,
+            "channel_id": 9,
+            "id": 1,
+            "alias": "左边第三排-开关1"
+        },
+        {
+            "global_id": 19,
+            "channel_id": 9,
+            "id": 2,
+            "alias": "左边第三排-开关2"
+        },
+        {
+            "global_id": 20,
+            "channel_id": 10,
+            "id": 1,
+            "alias": "左边第四排-开关1"
+        },
+        {
+            "global_id": 21,
+            "channel_id": 10,
+            "id": 2,
+            "alias": "左边第四排-开关2"
+        },
+        {
+            "global_id": 22,
+            "channel_id": 11,
+            "id": 1,
+            "alias": "左边第五排-开关1"
+        },
+        {
+            "global_id": 23,
+            "channel_id": 11,
+            "id": 2,
+            "alias": "左边第五排-开关2"
+        },
+        {
+            "global_id": 24,
+            "channel_id": 12,
+            "id": 1,
+            "alias": "左边第六排-开关1"
+        },
+        {
+            "global_id": 25,
+            "channel_id": 12,
+            "id": 2,
+            "alias": "左边第六排-开关2"
+        },
+        {
+            "global_id": 26,
+            "channel_id": 13,
+            "id": 1,
+            "alias": "PLC-CH1"
+        },
+        {
+            "global_id": 27,
+            "channel_id": 13,
+            "id": 2,
+            "alias": "PLC-CH2"
+        },
+        {
+            "global_id": 28,
+            "channel_id": 13,
+            "id": 3,
+            "alias": "PLC-CH3"
+        },
+        {
+            "global_id": 29,
+            "channel_id": 13,
+            "id": 4,
+            "alias": "PLC-CH4"
+        },
+        {
+            "global_id": 30,
+            "channel_id": 13,
+            "id": 5,
+            "alias": "PLC-CH5"
+        },
+        {
+            "global_id": 31,
+            "channel_id": 13,
+            "id": 6,
+            "alias": "PLC-CH6"
+        },
+        {
+            "global_id": 32,
+            "channel_id": 13,
+            "id": 7,
+            "alias": "PLC-CH7"
+        },
+        {
+            "global_id": 33,
+            "channel_id": 13,
+            "id": 8,
+            "alias": "PLC-CH8"
+        },
+        {
+            "global_id": 34,
+            "channel_id": 14,
+            "id": 1,
+            "alias": "时序器-CH1"
+        },
+        {
+            "global_id": 35,
+            "channel_id": 14,
+            "id": 2,
+            "alias": "时序器-CH2"
+        },
+        {
+            "global_id": 36,
+            "channel_id": 14,
+            "id": 3,
+            "alias": "时序器-CH3"
+        },
+        {
+            "global_id": 37,
+            "channel_id": 14,
+            "id": 4,
+            "alias": "时序器-CH4"
+        },
+        {
+            "global_id": 38,
+            "channel_id": 14,
+            "id": 5,
+            "alias": "时序器-CH5"
+        },
+        {
+            "global_id": 39,
+            "channel_id": 14,
+            "id": 6,
+            "alias": "时序器-CH6"
+        },
+        {
+            "global_id": 40,
+            "channel_id": 14,
+            "id": 7,
+            "alias": "时序器-CH7"
+        },
+        {
+            "global_id": 41,
+            "channel_id": 14,
+            "id": 8,
+            "alias": "时序器-CH8"
+        }
+    ],
+    "scenes": [
+        {
+            "name": "open_all_pdu",
+            "nodes": [
+                {
+                    "id": 2,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 4,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 6,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 8,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 10,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 12,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 14,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 16,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 18,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 20,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 22,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 24,
+                    "value": 1,
+                    "delay": 0
+                }
+            ]
+        },
+        {
+            "name": "close_all_pdu",
+            "nodes": [
+                {
+                    "id": 2,
+                    "value": 0,
+                    "delay": 0
+                },
+                {
+                    "id": 4,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 6,
+                    "value": 0,
+                    "delay": 200
+                },
+                {
+                    "id": 8,
+                    "value": 0,
+                    "delay": 300
+                },
+                {
+                    "id": 10,
+                    "value": 0,
+                    "delay": 400
+                },
+                {
+                    "id": 12,
+                    "value": 0,
+                    "delay": 500
+                },
+                {
+                    "id": 14,
+                    "value": 0,
+                    "delay": 600
+                },
+                {
+                    "id": 16,
+                    "value": 0,
+                    "delay": 700
+                },
+                {
+                    "id": 18,
+                    "value": 0,
+                    "delay": 800
+                },
+                {
+                    "id": 20,
+                    "value": 0,
+                    "delay": 900
+                },
+                {
+                    "id": 22,
+                    "value": 0,
+                    "delay": 1000
+                },
+                {
+                    "id": 24,
+                    "value": 0,
+                    "delay": 1100
+                }
+            ]
+        },
+        {
+            "name": "open_all_plc",
+            "nodes": [
+                {
+                    "id": 26,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 27,
+                    "value": 1,
+                    "delay": 100
+                },
+                {
+                    "id": 28,
+                    "value": 1,
+                    "delay": 200
+                },
+                {
+                    "id": 29,
+                    "value": 1,
+                    "delay": 300
+                },
+                {
+                    "id": 30,
+                    "value": 1,
+                    "delay": 400
+                },
+                {
+                    "id": 31,
+                    "value": 1,
+                    "delay": 500
+                },
+                {
+                    "id": 32,
+                    "value": 1,
+                    "delay": 600
+                },
+                {
+                    "id": 33,
+                    "value": 1,
+                    "delay": 700
+                }
+            ]
+        },
+        {
+            "name": "close_all_plc",
+            "nodes": [
+                {
+                    "id": 26,
+                    "value": 0,
+                    "delay": 0
+                },
+                {
+                    "id": 27,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 28,
+                    "value": 0,
+                    "delay": 200
+                },
+                {
+                    "id": 29,
+                    "value": 0,
+                    "delay": 300
+                },
+                {
+                    "id": 30,
+                    "value": 0,
+                    "delay": 400
+                },
+                {
+                    "id": 31,
+                    "value": 0,
+                    "delay": 500
+                },
+                {
+                    "id": 32,
+                    "value": 0,
+                    "delay": 600
+                },
+                {
+                    "id": 33,
+                    "value": 0,
+                    "delay": 700
+                }
+            ]
+        },
+        {
+            "name": "open_all_wdy8en",
+            "nodes": [
+                {
+                    "id": 34,
+                    "value": 1,
+                    "delay": 0
+                },
+                {
+                    "id": 35,
+                    "value": 1,
+                    "delay": 100
+                },
+                {
+                    "id": 36,
+                    "value": 1,
+                    "delay": 200
+                },
+                {
+                    "id": 37,
+                    "value": 1,
+                    "delay": 300
+                },
+                {
+                    "id": 38,
+                    "value": 1,
+                    "delay": 400
+                },
+                {
+                    "id": 39,
+                    "value": 1,
+                    "delay": 500
+                },
+                {
+                    "id": 40,
+                    "value": 1,
+                    "delay": 600
+                },
+                {
+                    "id": 41,
+                    "value": 1,
+                    "delay": 700
+                }
+            ]
+        },
+        {
+            "name": "close_all_wdy8en",
+            "nodes": [
+                {
+                    "id": 34,
+                    "value": 0,
+                    "delay": 0
+                },
+                {
+                    "id": 35,
+                    "value": 0,
+                    "delay": 100
+                },
+                {
+                    "id": 36,
+                    "value": 0,
+                    "delay": 200
+                },
+                {
+                    "id": 37,
+                    "value": 0,
+                    "delay": 300
+                },
+                {
+                    "id": 38,
+                    "value": 0,
+                    "delay": 400
+                },
+                {
+                    "id": 39,
+                    "value": 0,
+                    "delay": 500
+                },
+                {
+                    "id": 40,
+                    "value": 0,
+                    "delay": 600
+                },
+                {
+                    "id": 41,
+                    "value": 0,
+                    "delay": 700
+                }
+            ]
+        }
+    ]
+}

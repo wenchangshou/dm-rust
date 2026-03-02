@@ -164,6 +164,12 @@ pub struct SceneExecutionStatusResponse {
     /// 当前执行的场景名称（如果有）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_scene: Option<String>,
+    /// 当前执行步骤索引（0-based）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_step_index: Option<usize>,
+    /// 当前执行场景总步骤数
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_steps: Option<usize>,
 }
 
 /// 系统设置响应
@@ -565,6 +571,8 @@ pub async fn get_scene_status(
         data: Some(SceneExecutionStatusResponse {
             is_executing: status.is_executing,
             current_scene: status.current_scene,
+            current_step_index: status.current_step_index,
+            total_steps: status.total_steps,
         }),
     })
 }

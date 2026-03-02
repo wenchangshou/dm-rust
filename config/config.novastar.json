@@ -18,12 +18,24 @@
         "addr": "192.168.11.19",
         "port": 20000
       }
+    },
+    {
+      "channel_id": 2,
+      "enable": true,
+      "statute": "novastar",
+      "alias": "Novastar LED控制器2 (TCP)",
+      "arguments": {
+        "type": "tcp",
+        "use_tcp": true,
+        "addr": "172.168.1.250",
+        "port": 15200
+      }
     }
   ],
   "nodes": [
     {
       "global_id": 1,
-      "channel_id": 1,
+      "channel_id": 2,
       "id": 1,
       "category": "scene",
       "alias": "场景1"

@@ -30,7 +30,7 @@ export const messages: Record<LocaleCode, Messages> = {
       online: '在线'
     },
     app: {
-      title: '企业级配置控制台',
+      title: 'dm-rust控制中心',
       subtitle: '统一管理通道、设备节点与业务场景策略',
       currentModule: '当前模块',
       lastSync: '最近同步：{{time}}'
@@ -170,8 +170,19 @@ export const messages: Record<LocaleCode, Messages> = {
         noNode: '当前没有可用节点，无法添加步骤'
       },
       execute: '执行',
+      executeStarted: '场景 "{{name}}" 已开始执行',
       executeSuccess: '场景 "{{name}}" 执行成功',
-      executeFailed: '场景 "{{name}}" 执行失败'
+      executeFailed: '场景 "{{name}}" 执行失败',
+      executionTitle: '执行进度: {{name}}',
+      executionRunning: '执行中',
+      executionFinished: '执行完成',
+      executionProgress: '进度 {{current}}/{{total}}',
+      executionCurrentStep: '当前步骤',
+      executionPendingSteps: '待执行步骤',
+      executionPreparing: '正在准备执行当前步骤...',
+      executionFinishedNoCurrent: '场景执行已结束',
+      executionNoPending: '没有待执行步骤',
+      executionSceneMissing: '未找到场景配置'
     }
   },
   'en-US': {
@@ -338,8 +349,19 @@ export const messages: Record<LocaleCode, Messages> = {
         noNode: 'No node available for steps'
       },
       execute: 'Execute',
+      executeStarted: 'Scene "{{name}}" has started',
       executeSuccess: 'Scene "{{name}}" executed',
-      executeFailed: 'Scene "{{name}}" execution failed'
+      executeFailed: 'Scene "{{name}}" execution failed',
+      executionTitle: 'Execution Progress: {{name}}',
+      executionRunning: 'Running',
+      executionFinished: 'Finished',
+      executionProgress: 'Progress {{current}}/{{total}}',
+      executionCurrentStep: 'Current Step',
+      executionPendingSteps: 'Pending Steps',
+      executionPreparing: 'Preparing current step...',
+      executionFinishedNoCurrent: 'Scene execution has ended',
+      executionNoPending: 'No pending steps',
+      executionSceneMissing: 'Scene configuration not found'
     }
   }
 }

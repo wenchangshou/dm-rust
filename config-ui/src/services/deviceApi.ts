@@ -6,6 +6,13 @@ interface ApiResponse<T> {
     data?: T
 }
 
+export interface SceneExecutionStatus {
+    is_executing: boolean
+    current_scene?: string
+    current_step_index?: number
+    total_steps?: number
+}
+
 /** 读取单个节点状态 */
 export async function readNodeState(globalId: number) {
     logger.info('deviceApi', 'read node state', { globalId })
@@ -42,5 +49,18 @@ export async function executeScene(sceneName: string) {
     })
     const result = (await response.json()) as ApiResponse<null>
     logger.info('deviceApi', 'execute scene done', { name: sceneName, state: result.state })
+    return result
+}
+
+/** 获取场景执行状态 */
+export async function getSceneExecutionStatus() {
+    logger.info('deviceApi', 'get scene execution status')
+    const response = await fetch('/lspcapi/device/sceneStatus')
+    const result = (await response.json()) as ApiResponse<SceneExecutionStatus>
+    logger.info('deviceApi', 'get scene execution status done', {
+        httpStatus: response.status,
+        state: result.state,
+        data: result.data
+    })
     return result
 }

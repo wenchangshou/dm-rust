@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from '../../composables/useI18n'
 import type { NodeItem, Scene, SceneNode, ToastType } from '../../types/config'
 import { deepClone } from '../../utils/deepClone'
 import { VueDraggableNext } from 'vue-draggable-next'
-import { executeScene } from '../../services/deviceApi'
+import { executeScene, getSceneExecutionStatus, type SceneExecutionStatus } from '../../services/deviceApi'
 
 const props = defineProps<{
   scenes: Scene[]
@@ -222,13 +222,164 @@ const totalDelay = (scene: Scene) => {
 
 // --- 场景执行 ---
 const executingScenes = reactive<Record<string, boolean>>({})
+const executionVisible = ref(false)
+const executionSceneName = ref('')
+const executionRuntime = reactive<{
+  isExecuting: boolean
+  currentScene: string
+  currentStepIndex: number | null
+  totalSteps: number | null
+}>({
+  isExecuting: false,
+  currentScene: '',
+  currentStepIndex: null,
+  totalSteps: null
+})
+
+type IndexedSceneStep = {
+  index: number
+  node: SceneNode
+}
+
+let executionStatusTimer: ReturnType<typeof setInterval> | null = null
+let isFetchingExecutionStatus = false
+
+const executionScene = computed(() => {
+  const name = executionRuntime.currentScene || executionSceneName.value
+  return props.scenes.find((scene) => scene.name === name) ?? null
+})
+
+const executionTotalSteps = computed(() => {
+  return executionRuntime.totalSteps ?? executionScene.value?.nodes.length ?? 0
+})
+
+const executionProgressCurrent = computed(() => {
+  if (!executionRuntime.isExecuting) {
+    return executionTotalSteps.value
+  }
+  if (executionRuntime.currentStepIndex == null || executionRuntime.currentStepIndex < 0) {
+    return 0
+  }
+  const current = executionRuntime.currentStepIndex + 1
+  if (executionTotalSteps.value <= 0) {
+    return current
+  }
+  return Math.min(current, executionTotalSteps.value)
+})
+
+const executionCurrentStep = computed<IndexedSceneStep | null>(() => {
+  if (!executionRuntime.isExecuting) {
+    return null
+  }
+  const scene = executionScene.value
+  if (!scene) {
+    return null
+  }
+  const index = executionRuntime.currentStepIndex
+  if (index == null || index < 0 || index >= scene.nodes.length) {
+    return null
+  }
+  const node = scene.nodes[index]
+  if (!node) {
+    return null
+  }
+  return {
+    index,
+    node
+  }
+})
+
+const executionPendingSteps = computed<IndexedSceneStep[]>(() => {
+  const scene = executionScene.value
+  if (!scene || !executionRuntime.isExecuting) {
+    return []
+  }
+  const start = executionRuntime.currentStepIndex == null ? 0 : executionRuntime.currentStepIndex + 1
+  if (start >= scene.nodes.length) {
+    return []
+  }
+  return scene.nodes.slice(start).map((node, offset) => ({
+    index: start + offset,
+    node
+  }))
+})
+
+const applyExecutionStatus = (status: SceneExecutionStatus) => {
+  executionRuntime.isExecuting = status.is_executing
+  executionRuntime.currentScene = status.current_scene ?? ''
+  executionRuntime.currentStepIndex =
+    Number.isInteger(status.current_step_index) ? (status.current_step_index as number) : null
+  executionRuntime.totalSteps =
+    Number.isInteger(status.total_steps) ? (status.total_steps as number) : null
+}
+
+const refreshExecutionStatus = async () => {
+  if (isFetchingExecutionStatus) {
+    return
+  }
+  isFetchingExecutionStatus = true
+  try {
+    const result = await getSceneExecutionStatus()
+    if (result.state === 0 && result.data) {
+      applyExecutionStatus(result.data)
+    }
+  } finally {
+    isFetchingExecutionStatus = false
+  }
+}
+
+const stopExecutionStatusPolling = () => {
+  if (executionStatusTimer) {
+    clearInterval(executionStatusTimer)
+    executionStatusTimer = null
+  }
+}
+
+const startExecutionStatusPolling = () => {
+  stopExecutionStatusPolling()
+  executionStatusTimer = setInterval(async () => {
+    await refreshExecutionStatus()
+    if (!executionRuntime.isExecuting) {
+      stopExecutionStatusPolling()
+    }
+  }, 500)
+}
+
+const openExecutionDialog = async (sceneName: string) => {
+  executionSceneName.value = sceneName
+  executionRuntime.isExecuting = true
+  executionRuntime.currentScene = sceneName
+  executionRuntime.currentStepIndex = null
+  executionRuntime.totalSteps =
+    props.scenes.find((scene) => scene.name === sceneName)?.nodes.length ?? null
+  executionVisible.value = true
+
+  await refreshExecutionStatus()
+  if (executionVisible.value && executionRuntime.isExecuting) {
+    startExecutionStatusPolling()
+  }
+}
+
+const resetExecutionDialog = () => {
+  stopExecutionStatusPolling()
+  executionSceneName.value = ''
+  executionRuntime.isExecuting = false
+  executionRuntime.currentScene = ''
+  executionRuntime.currentStepIndex = null
+  executionRuntime.totalSteps = null
+}
+
+onUnmounted(() => {
+  stopExecutionStatusPolling()
+})
 
 const doExecuteScene = async (sceneName: string) => {
   executingScenes[sceneName] = true
   try {
     const result = await executeScene(sceneName)
     if (result.state === 0) {
-      emit('notify', { message: t('scenes.executeSuccess', { name: sceneName }) })
+      emit('notify', { message: t('scenes.executeStarted', { name: sceneName }) })
+      await openExecutionDialog(sceneName)
     } else {
       emit('notify', { message: result.message ?? t('scenes.executeFailed', { name: sceneName }), type: 'error' })
     }
@@ -449,6 +600,68 @@ const doExecuteScene = async (sceneName: string) => {
           {{ editingIndex >= 0 ? t('common.update') : t('common.create') }}
         </el-button>
       </template>
+    </el-dialog>
+
+    <!-- ============ 执行进度对话框 ============ -->
+    <el-dialog
+      v-model="executionVisible"
+      :title="t('scenes.executionTitle', { name: executionScene ? executionScene.name : executionSceneName })"
+      width="680px"
+      top="8vh"
+      destroy-on-close
+      @closed="resetExecutionDialog"
+    >
+      <template v-if="executionScene">
+        <div class="exec-dialog">
+          <div class="exec-summary">
+            <el-tag :type="executionRuntime.isExecuting ? 'warning' : 'success'">
+              {{ executionRuntime.isExecuting ? t('scenes.executionRunning') : t('scenes.executionFinished') }}
+            </el-tag>
+            <el-tag type="info">
+              {{ t('scenes.executionProgress', { current: executionProgressCurrent, total: executionTotalSteps }) }}
+            </el-tag>
+          </div>
+
+          <div class="exec-section">
+            <h4>{{ t('scenes.executionCurrentStep') }}</h4>
+            <div v-if="executionCurrentStep" class="exec-step-card exec-step-current">
+              <span class="tl-step-badge">{{ executionCurrentStep.index + 1 }}</span>
+              <span class="exec-step-device">{{ nodeLabel(executionCurrentStep.node.id) }}</span>
+              <span class="exec-step-arrow">→</span>
+              <span class="exec-step-value">{{ executionCurrentStep.node.value }}</span>
+              <el-tag v-if="executionCurrentStep.node.delay" type="warning" effect="plain">
+                ⏱ {{ executionCurrentStep.node.delay }}ms
+              </el-tag>
+            </div>
+            <el-empty
+              v-else
+              :description="executionRuntime.isExecuting ? t('scenes.executionPreparing') : t('scenes.executionFinishedNoCurrent')"
+              :image-size="72"
+            />
+          </div>
+
+          <div class="exec-section">
+            <h4>{{ t('scenes.executionPendingSteps') }}</h4>
+            <div v-if="executionPendingSteps.length" class="exec-step-list">
+              <div
+                v-for="pending in executionPendingSteps"
+                :key="`${pending.index}-${pending.node.id}-${pending.node.value}-${pending.node.delay ?? 0}`"
+                class="exec-step-card"
+              >
+                <span class="tl-step-badge">{{ pending.index + 1 }}</span>
+                <span class="exec-step-device">{{ nodeLabel(pending.node.id) }}</span>
+                <span class="exec-step-arrow">→</span>
+                <span class="exec-step-value">{{ pending.node.value }}</span>
+                <el-tag v-if="pending.node.delay" type="warning" effect="plain">
+                  ⏱ {{ pending.node.delay }}ms
+                </el-tag>
+              </div>
+            </div>
+            <el-empty v-else :description="t('scenes.executionNoPending')" :image-size="72" />
+          </div>
+        </div>
+      </template>
+      <el-empty v-else :description="t('scenes.executionSceneMissing')" :image-size="72" />
     </el-dialog>
 
     <!-- ============ 查看器对话框 ============ -->
@@ -724,6 +937,65 @@ const doExecuteScene = async (sceneName: string) => {
   color: var(--el-text-color-secondary);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* ===== Execution Dialog ===== */
+.exec-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.exec-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exec-section h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.exec-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 36vh;
+  overflow-y: auto;
+}
+
+.exec-step-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+
+.exec-step-current {
+  border-color: var(--el-color-primary-light-5);
+  background: linear-gradient(135deg, var(--el-color-primary-light-9), var(--el-color-primary-light-8));
+}
+
+.exec-step-device {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.exec-step-arrow {
+  color: var(--el-text-color-secondary);
+}
+
+.exec-step-value {
+  font-weight: 700;
+  color: var(--el-color-primary);
+  min-width: 40px;
+  text-align: right;
 }
 
 /* ===== Viewer ===== */

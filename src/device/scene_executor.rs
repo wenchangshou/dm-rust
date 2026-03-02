@@ -9,12 +9,16 @@ use crate::config::SceneConfig;
 use crate::utils::{DeviceError, Result};
 
 /// 场景执行状态
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SceneExecutionStatus {
     /// 是否正在执行场景
     pub is_executing: bool,
     /// 当前执行的场景名称（如果有）
     pub current_scene: Option<String>,
+    /// 当前执行步骤索引（0-based）
+    pub current_step_index: Option<usize>,
+    /// 当前执行场景总步骤数
+    pub total_steps: Option<usize>,
 }
 
 /// 场景执行器
@@ -23,8 +27,8 @@ pub struct SceneExecutor {
     channel_manager: Arc<ChannelManager>,
     node_manager: Arc<NodeManager>,
     event_tx: broadcast::Sender<DeviceEvent>,
-    /// 当前执行的场景名称（用于互斥控制）
-    current_executing: Arc<Mutex<Option<String>>>,
+    /// 当前场景执行状态
+    execution_status: Arc<Mutex<SceneExecutionStatus>>,
 }
 
 impl SceneExecutor {
@@ -41,7 +45,7 @@ impl SceneExecutor {
             channel_manager,
             node_manager,
             event_tx,
-            current_executing: Arc::new(Mutex::new(None)),
+            execution_status: Arc::new(Mutex::new(SceneExecutionStatus::default())),
         }
     }
 
@@ -55,8 +59,12 @@ impl SceneExecutor {
             .ok_or_else(|| DeviceError::Other(format!("场景 '{}' 不存在", scene_name)))?;
 
         // 检查是否已有场景正在执行
-        let mut current = self.current_executing.lock().await;
-        if let Some(ref executing_scene) = *current {
+        let mut status = self.execution_status.lock().await;
+        if status.is_executing {
+            let executing_scene = status
+                .current_scene
+                .clone()
+                .unwrap_or_else(|| "未知场景".to_string());
             return Err(DeviceError::Other(format!(
                 "场景 '{}' 正在执行中，无法同时执行场景 '{}'",
                 executing_scene, scene_name
@@ -64,8 +72,11 @@ impl SceneExecutor {
         }
 
         // 标记当前场景为正在执行
-        *current = Some(scene_name.to_string());
-        drop(current); // 释放锁
+        status.is_executing = true;
+        status.current_scene = Some(scene_name.to_string());
+        status.current_step_index = None;
+        status.total_steps = Some(scene.nodes.len());
+        drop(status); // 释放锁
 
         info!("开始执行场景: {}", scene_name);
 
@@ -73,7 +84,7 @@ impl SceneExecutor {
         let scene_name_str = scene_name.to_string();
         let scene_nodes = scene.nodes.clone();
         let controller_clone = controller.clone();
-        let current_executing = self.current_executing.clone();
+        let execution_status = self.execution_status.clone();
         let event_tx = self.event_tx.clone();
 
         // 发送场景开始事件
@@ -86,7 +97,12 @@ impl SceneExecutor {
             let mut success = true;
 
             // 按顺序执行场景中的所有成员
-            for member in &scene_nodes {
+            for (index, member) in scene_nodes.iter().enumerate() {
+                {
+                    let mut status = execution_status.lock().await;
+                    status.current_step_index = Some(index);
+                }
+
                 // 延迟执行（如果有配置）
                 if let Some(delay) = member.delay {
                     tokio::time::sleep(Duration::from_millis(delay as u64)).await;
@@ -111,9 +127,9 @@ impl SceneExecutor {
             }
 
             // 清除执行状态
-            let mut current = current_executing.lock().await;
-            *current = None;
-            drop(current);
+            let mut status = execution_status.lock().await;
+            *status = SceneExecutionStatus::default();
+            drop(status);
 
             // 发送场景完成事件
             let _ = event_tx.send(DeviceEvent::SceneCompleted {
@@ -144,10 +160,6 @@ impl SceneExecutor {
 
     /// 获取当前场景执行状态
     pub async fn get_execution_status(&self) -> SceneExecutionStatus {
-        let current = self.current_executing.lock().await;
-        SceneExecutionStatus {
-            is_executing: current.is_some(),
-            current_scene: current.clone(),
-        }
+        self.execution_status.lock().await.clone()
     }
 }

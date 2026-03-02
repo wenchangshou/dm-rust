@@ -32,6 +32,10 @@ const SCHEMA_SOURCES: &[(&str, &str)] = &[
         "tpris-pdu",
         include_str!("../protocols/schemas/tpris-pdu.json"),
     ),
+    (
+        "wdy-8en",
+        include_str!("../protocols/schemas/wdy-8en.json"),
+    ),
     ("xfusion", include_str!("../protocols/schemas/xfusion.json")),
     ("xinkeQ1", include_str!("../protocols/schemas/xinkeQ1.json")),
     ("yk-vap", include_str!("../protocols/schemas/yk-vap.json")),
