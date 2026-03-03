@@ -325,7 +325,10 @@ async fn get_config(config: Config) -> axum::Json<serde_json::Value> {
             "web_server": config.web_server,
             "nodes": config.nodes,
             "scenes": config.scenes,
-            "channels": config.channels
+            "channels": config.channels,
+            "file": config.file,
+            "database": config.database,
+            "resource": config.resource
         }
     });
 

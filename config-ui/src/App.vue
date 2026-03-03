@@ -8,6 +8,7 @@ import OverviewPage from './components/pages/OverviewPage.vue'
 import ChannelsPage from './components/pages/ChannelsPage.vue'
 import NodesPage from './components/pages/NodesPage.vue'
 import ScenesPage from './components/pages/ScenesPage.vue'
+import GeneralSettingsPage from './components/pages/GeneralSettingsPage.vue'
 import { useConfigSystem } from './composables/useConfigSystem'
 import { useI18n } from './composables/useI18n'
 import { fetchDeviceConfig, saveDeviceConfig } from './services/configApi'
@@ -25,6 +26,9 @@ const {
   nodes,
   scenes,
   webServer,
+  fileConfig,
+  databaseConfig,
+  resourceConfig,
   loading,
   saving,
   stats,
@@ -51,7 +55,10 @@ const pageMeta = computed(() => {
   if (activePage.value === 'nodes') {
     return { title: t('sidebar.nodes'), desc: t('nodes.desc') }
   }
-  return { title: t('sidebar.scenes'), desc: t('scenes.desc') }
+  if (activePage.value === 'scenes') {
+    return { title: t('sidebar.scenes'), desc: t('scenes.desc') }
+  }
+  return { title: t('settings.title'), desc: t('settings.desc') }
 })
 
 const refreshLastSync = () => {
@@ -260,6 +267,18 @@ onMounted(async () => {
                 :nodes="nodes"
                 @update:scenes="updateScenes"
                 @notify="onNotify"
+              />
+
+              <GeneralSettingsPage
+                v-if="activePage === 'settings'"
+                :web-server="webServer"
+                :file-config="fileConfig"
+                :database-config="databaseConfig"
+                :resource-config="resourceConfig"
+                @update:web-server="(v) => webServer = v"
+                @update:file-config="(v) => fileConfig = v"
+                @update:database-config="(v) => databaseConfig = v"
+                @update:resource-config="(v) => resourceConfig = v"
               />
             </section>
           </el-main>

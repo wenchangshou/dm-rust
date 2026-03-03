@@ -184,7 +184,25 @@ export const messages: Record<LocaleCode, Messages> = {
       executionPreparing: '正在准备执行当前步骤...',
       executionFinishedNoCurrent: '场景执行已结束',
       executionNoPending: '没有待执行步骤',
-      executionSceneMissing: '未找到场景配置'
+      executionScenesMissing: '未找到场景配置'
+    },
+    settings: {
+      title: '通用设置',
+      desc: '管理系统核心组件、上传限制及外围中间件依赖。',
+      webServer: 'Web 服务器',
+      webPort: '监听端口',
+      maxBodyLimit: '上传大小限制',
+      fileManagement: '文件管理',
+      filePath: '文件存储路径',
+      filePathPlaceholder: '请输入本地存储目录绝对路径或相对路径',
+      database: '数据库配置',
+      databaseUrl: '连接地址',
+      databaseUrlPlaceholder: 'mysql://user:pass@host:port/dbname',
+      resourceManagement: '资源管理',
+      resourcePath: '静态资源路径',
+      resourcePathPlaceholder: '素材文件的存储目录',
+      urlPrefix: 'URL 访问前缀',
+      urlPrefixPlaceholder: '例如: /static'
     }
   },
   'en-US': {
@@ -222,6 +240,7 @@ export const messages: Record<LocaleCode, Messages> = {
       channels: 'Channels',
       nodes: 'Nodes',
       scenes: 'Scenes',
+      settings: 'General Settings',
       language: 'Language',
       chinese: '中文',
       english: 'English',
@@ -366,6 +385,24 @@ export const messages: Record<LocaleCode, Messages> = {
       executionFinishedNoCurrent: 'Scene execution has ended',
       executionNoPending: 'No pending steps',
       executionSceneMissing: 'Scene configuration not found'
+    },
+    settings: {
+      title: 'General Settings',
+      desc: 'Manage core components, upload limits, and peripheral middleware.',
+      webServer: 'Web Server',
+      webPort: 'Port',
+      maxBodyLimit: 'Upload Size Limit',
+      fileManagement: 'File Management',
+      filePath: 'Storage Path',
+      filePathPlaceholder: 'Absolute or relative path to storage directory',
+      database: 'Database Config',
+      databaseUrl: 'Connection URL',
+      databaseUrlPlaceholder: 'mysql://user:pass@host:port/dbname',
+      resourceManagement: 'Resource Management',
+      resourcePath: 'Static Asset Path',
+      resourcePathPlaceholder: 'Storage directory for media files',
+      urlPrefix: 'URL Prefix',
+      urlPrefixPlaceholder: 'e.g.: /static'
     }
   }
 }

@@ -45,6 +45,12 @@ const navItems = computed(() => [
     label: t('sidebar.scenes'),
     count: props.scenesCount,
     icon: 'Film'
+  },
+  {
+    key: 'settings' as const,
+    label: t('sidebar.settings') || 'Settings',
+    count: null,
+    icon: 'Setting'
   }
 ])
 

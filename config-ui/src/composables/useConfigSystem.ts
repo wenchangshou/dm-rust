@@ -1,9 +1,25 @@
 import { computed, ref } from 'vue'
-import type { Channel, DeviceConfig, NodeItem, Scene, WebServerConfig } from '../types/config'
+import type { Channel, DatabaseConfig, DeviceConfig, FileConfig, NodeItem, ResourceConfig, Scene, WebServerConfig } from '../types/config'
 import { deepClone } from '../utils/deepClone'
 
 const defaultWebServer: WebServerConfig = {
   port: 18080
+}
+
+const defaultFileConfig: FileConfig = {
+  enable: false,
+  path: '/file'
+}
+
+const defaultDatabaseConfig: DatabaseConfig = {
+  enable: false,
+  url: ''
+}
+
+const defaultResourceConfig: ResourceConfig = {
+  enable: false,
+  path: '/data',
+  url_prefix: '/static'
 }
 
 export function useConfigSystem() {
@@ -11,6 +27,9 @@ export function useConfigSystem() {
   const nodes = ref<NodeItem[]>([])
   const scenes = ref<Scene[]>([])
   const webServer = ref<WebServerConfig>(deepClone(defaultWebServer))
+  const fileConfig = ref<FileConfig>(deepClone(defaultFileConfig))
+  const databaseConfig = ref<DatabaseConfig>(deepClone(defaultDatabaseConfig))
+  const resourceConfig = ref<ResourceConfig>(deepClone(defaultResourceConfig))
 
   const loading = ref(false)
   const saving = ref(false)
@@ -26,13 +45,19 @@ export function useConfigSystem() {
     nodes.value = deepClone(payload?.nodes ?? [])
     scenes.value = deepClone(payload?.scenes ?? [])
     webServer.value = deepClone(payload?.web_server ?? defaultWebServer)
+    fileConfig.value = deepClone(payload?.file ?? defaultFileConfig)
+    databaseConfig.value = deepClone(payload?.database ?? defaultDatabaseConfig)
+    resourceConfig.value = deepClone(payload?.resource ?? defaultResourceConfig)
   }
 
   const toPayload = (): DeviceConfig => ({
     web_server: deepClone(webServer.value),
     channels: deepClone(channels.value),
     nodes: deepClone(nodes.value),
-    scenes: deepClone(scenes.value)
+    scenes: deepClone(scenes.value),
+    file: deepClone(fileConfig.value),
+    database: deepClone(databaseConfig.value),
+    resource: deepClone(resourceConfig.value)
   })
 
   return {
@@ -40,6 +65,9 @@ export function useConfigSystem() {
     nodes,
     scenes,
     webServer,
+    fileConfig,
+    databaseConfig,
+    resourceConfig,
     loading,
     saving,
     stats,
@@ -47,3 +75,4 @@ export function useConfigSystem() {
     toPayload
   }
 }
+

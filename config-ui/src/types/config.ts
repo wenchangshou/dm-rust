@@ -26,6 +26,23 @@ export interface Scene {
 
 export interface WebServerConfig {
   port: number
+  max_body_limit?: number
+}
+
+export interface FileConfig {
+  enable: boolean
+  path: string
+}
+
+export interface DatabaseConfig {
+  enable: boolean
+  url: string
+}
+
+export interface ResourceConfig {
+  enable: boolean
+  path: string
+  url_prefix: string
 }
 
 export interface DeviceConfig {
@@ -33,8 +50,11 @@ export interface DeviceConfig {
   channels: Channel[]
   nodes: NodeItem[]
   scenes: Scene[]
+  file?: FileConfig
+  database?: DatabaseConfig
+  resource?: ResourceConfig
 }
 
-export type PageKey = 'overview' | 'channels' | 'nodes' | 'scenes'
+export type PageKey = 'overview' | 'channels' | 'nodes' | 'scenes' | 'settings'
 
 export type ToastType = 'success' | 'error'
