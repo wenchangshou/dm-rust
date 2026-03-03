@@ -10,6 +10,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
@@ -35,6 +36,7 @@ use super::file_api::{
 use super::file_page::{CONFIG_MANAGER_HTML, DEBUG_CONSOLE_HTML, FILE_MANAGER_HTML};
 use super::resource_api::{serve_static_resource, upload_material, ResourceManagerState};
 use super::schema_api::{get_protocol_schema, list_protocol_schemas};
+use super::state::{SharedConfig, SharedConfigPath, SharedController};
 #[cfg(feature = "swagger")]
 use super::swagger::swagger_routes;
 
@@ -83,7 +85,9 @@ impl WebServer {
 
     /// 运行 Web 服务器
     pub async fn run(self) -> anyhow::Result<()> {
-        let controller = Arc::new(self.controller);
+        let controller: SharedController = Arc::new(RwLock::new(self.controller));
+        let runtime_config: SharedConfig = Arc::new(RwLock::new(self.config.clone()));
+        let config_path: SharedConfigPath = Arc::new(self.config_path.clone());
         let file_config = self.config.file.clone();
         let file_manager_state = FileManagerState {
             config: file_config.clone(),
@@ -91,7 +95,6 @@ impl WebServer {
         let db_ref = self.database.clone();
 
         // 设备控制路由
-        let config_clone = self.config.clone();
         let mut device_routes = Router::new()
             .route("/getAllStatus", post(get_all_status))
             .route("/getAllNodeStates", post(get_all_node_states))
@@ -106,8 +109,7 @@ impl WebServer {
             .route("/callMethod", post(call_method))
             .route("/getMethods", post(get_methods))
             .route("/batchRead", post(batch_read))
-            .route("/config", get(move || get_config(config_clone.clone())))
-            .layer(Extension(controller));
+            .route("/config", get(get_config));
 
         // 如果有数据库，添加需要数据库的路由
         if let Some(ref db) = db_ref {
@@ -117,8 +119,6 @@ impl WebServer {
         }
 
         // 基础应用路由
-        let config_path = self.config_path.clone();
-        let _config_for_save = self.config.clone();
         let mut app = Router::new()
             .route("/", get(hello))
             .route(&format!("{}/debug", API_PREFIX), get(debug_console_page))
@@ -136,9 +136,16 @@ impl WebServer {
             )
             .route(
                 &format!("{}/config/save", API_PREFIX),
-                post(move |body| save_config(body, config_path.clone())),
+                post(save_config),
+            )
+            .route(
+                &format!("{}/config/reload", API_PREFIX),
+                post(reload_config),
             )
             .nest(&format!("{}/device", API_PREFIX), device_routes)
+            .layer(Extension(controller))
+            .layer(Extension(runtime_config))
+            .layer(Extension(config_path))
             .layer(CorsLayer::permissive());
 
         // 配置管理前端（Vue SPA）
@@ -315,7 +322,10 @@ async fn debug_console_page() -> Html<&'static str> {
 }
 
 /// 获取配置信息（用于调试控制台）
-async fn get_config(config: Config) -> axum::Json<serde_json::Value> {
+async fn get_config(
+    Extension(config): Extension<SharedConfig>,
+) -> axum::Json<serde_json::Value> {
+    let config = config.read().await.clone();
     tracing::info!("[调试] 获取配置信息请求");
 
     let response = serde_json::json!({
@@ -349,19 +359,19 @@ async fn config_manager_page() -> Html<&'static str> {
 
 /// 保存配置到文件
 async fn save_config(
+    Extension(config_path): Extension<SharedConfigPath>,
     axum::Json(payload): axum::Json<serde_json::Value>,
-    config_path: String,
 ) -> axum::Json<serde_json::Value> {
     tracing::info!("[配置] 保存配置请求");
 
     // 将配置写入文件
     match serde_json::to_string_pretty(&payload) {
-        Ok(json_str) => match std::fs::write(&config_path, json_str) {
+        Ok(json_str) => match std::fs::write(config_path.as_ref(), json_str) {
             Ok(_) => {
-                tracing::info!("[配置] 配置已保存到: {}", config_path);
+                tracing::info!("[配置] 配置已保存到: {}", config_path.as_ref());
                 axum::Json(serde_json::json!({
                     "state": 0,
-                    "message": format!("配置已保存到 {}", config_path)
+                    "message": format!("配置已保存到 {}", config_path.as_ref())
                 }))
             }
             Err(e) => {
@@ -380,4 +390,73 @@ async fn save_config(
             }))
         }
     }
+}
+
+/// 热重载配置：读取配置文件并替换运行中的控制器
+async fn reload_config(
+    Extension(config_path): Extension<SharedConfigPath>,
+    Extension(controller): Extension<SharedController>,
+    Extension(runtime_config): Extension<SharedConfig>,
+) -> axum::Json<serde_json::Value> {
+    tracing::info!("[配置] 热重载请求");
+
+    let next_config = match crate::config::load_config_from_file(config_path.as_ref()) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            tracing::error!("[配置] 加载配置失败: {:?}", e);
+            return axum::Json(serde_json::json!({
+                "state": 1,
+                "message": format!("加载配置失败: {}", e)
+            }));
+        }
+    };
+
+    let old_port = {
+        let cfg = runtime_config.read().await;
+        cfg.web_server.port
+    };
+    let port_changed = old_port != next_config.web_server.port;
+
+    let next_controller = match DeviceController::new(next_config.clone()).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!("[配置] 重建控制器失败: {:?}", e);
+            return axum::Json(serde_json::json!({
+                "state": 1,
+                "message": format!("热重载失败: {}", e)
+            }));
+        }
+    };
+
+    {
+        let mut active_controller = controller.write().await;
+        *active_controller = next_controller;
+    }
+    {
+        let mut active_config = runtime_config.write().await;
+        *active_config = next_config.clone();
+    }
+
+    let message = if port_changed {
+        "热重载成功，但 web_server.port 变更需要重启服务后生效。"
+    } else {
+        "热重载成功。"
+    };
+
+    tracing::info!(
+        "[配置] 热重载完成: channels={}, nodes={}, scenes={}, port_changed={}",
+        next_config.channels.len(),
+        next_config.nodes.len(),
+        next_config.scenes.len(),
+        port_changed
+    );
+
+    axum::Json(serde_json::json!({
+        "state": 0,
+        "message": message,
+        "data": {
+            "port_changed": port_changed,
+            "requires_restart": port_changed
+        }
+    }))
 }

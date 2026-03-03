@@ -7,8 +7,8 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 
 use super::response::ApiResponse;
+use super::state::SharedController;
 use crate::db::Database;
-use crate::device::DeviceController;
 use crate::utils::error::error_codes;
 
 // ===== 请求/响应类型定义 =====
@@ -271,9 +271,9 @@ pub async fn get_all_settings(
     tag = "Device"
 )]
 pub async fn get_all_status(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    match controller.get_all_channel_status().await {
+    match controller.read().await.get_all_channel_status().await {
         Ok(data) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "成功".to_string(),
@@ -298,9 +298,9 @@ pub async fn get_all_status(
     tag = "Device"
 )]
 pub async fn get_all_node_states(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let states = controller.get_all_node_states();
+    let states = controller.read().await.get_all_node_states();
     let data: Vec<_> = states
         .into_iter()
         .map(|(global_id, state)| {
@@ -335,11 +335,11 @@ pub async fn get_all_node_states(
     tag = "Device"
 )]
 pub async fn get_node_state(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<StatusRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     if let Some(id) = payload.id {
-        match controller.get_node_state(id) {
+        match controller.read().await.get_node_state(id) {
             Some(state) => Json(ApiResponse {
                 state: error_codes::SUCCESS,
                 message: "成功".to_string(),
@@ -379,10 +379,10 @@ pub async fn get_node_state(
     tag = "Device"
 )]
 pub async fn read_device(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<ReadRequest>,
 ) -> Json<ApiResponse<f64>> {
-    match controller.read_node(payload.global_id).await {
+    match controller.read().await.read_node(payload.global_id).await {
         Ok(value) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "读取成功".to_string(),
@@ -407,7 +407,7 @@ pub async fn read_device(
     tag = "Device"
 )]
 pub async fn read_many(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<ReadManyRequest>,
 ) -> Json<ApiResponse<Vec<ReadManyResultItem>>> {
     let mut results = Vec::new();
@@ -415,7 +415,7 @@ pub async fn read_many(
     let mut fail_count = 0;
 
     for id in payload.ids {
-        match controller.read_node(id).await {
+        match controller.read().await.read_node(id).await {
             Ok(value) => {
                 results.push(ReadManyResultItem {
                     id,
@@ -455,10 +455,12 @@ pub async fn read_many(
     tag = "Device"
 )]
 pub async fn write_device(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<WriteRequest>,
 ) -> Json<ApiResponse<()>> {
     match controller
+        .read()
+        .await
         .write_node(payload.global_id, payload.value)
         .await
     {
@@ -486,7 +488,7 @@ pub async fn write_device(
     tag = "Device"
 )]
 pub async fn write_many(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<WriteManyRequest>,
 ) -> Json<ApiResponse<Vec<WriteManyResultItem>>> {
     let mut results = Vec::new();
@@ -494,7 +496,7 @@ pub async fn write_many(
     let mut fail_count = 0;
 
     for item in payload.items {
-        match controller.write_node(item.id, item.value).await {
+        match controller.read().await.write_node(item.id, item.value).await {
             Ok(_) => {
                 results.push(WriteManyResultItem {
                     id: item.id,
@@ -535,10 +537,10 @@ pub async fn write_many(
     tag = "Device"
 )]
 pub async fn execute_scene(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<SceneRequest>,
 ) -> Json<ApiResponse<()>> {
-    match controller.execute_scene(&payload.name).await {
+    match controller.read().await.execute_scene(&payload.name).await {
         Ok(_) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: format!("场景 '{}' 已开始执行", payload.name),
@@ -562,9 +564,9 @@ pub async fn execute_scene(
     tag = "Device"
 )]
 pub async fn get_scene_status(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
 ) -> Json<ApiResponse<SceneExecutionStatusResponse>> {
-    let status = controller.get_scene_execution_status().await;
+    let status = controller.read().await.get_scene_execution_status().await;
     Json(ApiResponse {
         state: error_codes::SUCCESS,
         message: "获取场景执行状态成功".to_string(),
@@ -588,10 +590,12 @@ pub async fn get_scene_status(
     tag = "Device"
 )]
 pub async fn execute_channel_command(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<ChannelCommandRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match controller
+        .read()
+        .await
         .execute_channel_command(payload.channel_id, &payload.command, payload.params)
         .await
     {
@@ -619,10 +623,12 @@ pub async fn execute_channel_command(
     tag = "Device"
 )]
 pub async fn call_method(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<CallMethodRequest>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match controller
+        .read()
+        .await
         .call_channel_method(payload.channel_id, &payload.method_name, payload.arguments)
         .await
     {
@@ -650,10 +656,10 @@ pub async fn call_method(
     tag = "Device"
 )]
 pub async fn get_methods(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<GetMethodsRequest>,
 ) -> Json<ApiResponse<Vec<String>>> {
-    match controller.get_channel_methods(payload.channel_id).await {
+    match controller.read().await.get_channel_methods(payload.channel_id).await {
         Ok(methods) => Json(ApiResponse {
             state: error_codes::SUCCESS,
             message: "获取方法列表成功".to_string(),
@@ -678,13 +684,15 @@ pub async fn get_methods(
     tag = "Device"
 )]
 pub async fn batch_read(
-    Extension(controller): Extension<Arc<DeviceController>>,
+    Extension(controller): Extension<SharedController>,
     Json(payload): Json<BatchReadRequest>,
 ) -> Json<ApiResponse<Vec<BatchReadResultItem>>> {
     let mut results = Vec::new();
 
     for item in payload.items {
         let result = controller
+            .read()
+            .await
             .execute_channel_command(item.channel_id, "read", item.params)
             .await;
 

@@ -9,15 +9,28 @@ import ChannelsPage from './components/pages/ChannelsPage.vue'
 import NodesPage from './components/pages/NodesPage.vue'
 import ScenesPage from './components/pages/ScenesPage.vue'
 import GeneralSettingsPage from './components/pages/GeneralSettingsPage.vue'
+import RawConfigPage from './components/pages/RawConfigPage.vue'
 import { useConfigSystem } from './composables/useConfigSystem'
 import { useI18n } from './composables/useI18n'
-import { fetchDeviceConfig, saveDeviceConfig } from './services/configApi'
+import { fetchDeviceConfig, reloadDeviceRuntime, saveDeviceConfig } from './services/configApi'
 import { useSchemaRegistry } from './services/schemaRegistry'
-import type { Channel, NodeItem, PageKey, Scene, ToastType } from './types/config'
+import type {
+  Channel,
+  DatabaseConfig,
+  DeviceConfig,
+  FileConfig,
+  NodeItem,
+  PageKey,
+  ResourceConfig,
+  Scene,
+  ToastType,
+  WebServerConfig
+} from './types/config'
 import { logger } from './utils/logger'
 
 const activePage = ref<PageKey>('overview')
 const lastSyncText = ref('-')
+const rawConfigText = ref('{}')
 
 const { t, locale } = useI18n()
 
@@ -36,12 +49,7 @@ const {
   toPayload
 } = useConfigSystem()
 
-const {
-  protocolList,
-  initProtocols,
-  ensureSchema,
-  resolveSchema
-} = useSchemaRegistry()
+const { protocolList, initProtocols, ensureSchema, resolveSchema } = useSchemaRegistry()
 
 const elementLocale = computed(() => (locale.value === 'en-US' ? enUs : zhCn))
 
@@ -58,7 +66,34 @@ const pageMeta = computed(() => {
   if (activePage.value === 'scenes') {
     return { title: t('sidebar.scenes'), desc: t('scenes.desc') }
   }
-  return { title: t('settings.title'), desc: t('settings.desc') }
+  if (activePage.value === 'settings') {
+    return { title: t('settings.title'), desc: t('settings.desc') }
+  }
+
+  return {
+    title: 'Raw JSON Editor',
+    desc: 'Directly edit the full configuration JSON and save it as-is.'
+  }
+})
+
+const rawConfigRootErrorText = computed(() => 'Root JSON must be an object.')
+
+const parseRawConfig = () => {
+  try {
+    const parsed = JSON.parse(rawConfigText.value) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { data: null, error: rawConfigRootErrorText.value }
+    }
+    return { data: parsed as Record<string, unknown>, error: null }
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error)
+    return { data: null, error: text }
+  }
+}
+
+const rawConfigError = computed(() => {
+  const parsed = parseRawConfig()
+  return parsed.error ?? ''
 })
 
 const refreshLastSync = () => {
@@ -92,14 +127,66 @@ const preloadChannelSchemas = async () => {
   logger.info('app', 'preload channel schemas done', { count: statutes.length })
 }
 
-const loadConfig = async () => {
+const syncRawFromStructured = () => {
+  rawConfigText.value = JSON.stringify(toPayload(), null, 2)
+}
+
+const applyRawConfig = async () => {
+  const parsed = parseRawConfig()
+  if (parsed.error || !parsed.data) {
+    notify(t('toast.validationError', { message: parsed.error || '-' }), 'error')
+    return
+  }
+
+  setConfig(parsed.data as Partial<DeviceConfig>)
+  await preloadChannelSchemas()
+  notify('Raw JSON applied to visual editors.')
+}
+
+const formatRawConfig = () => {
+  const parsed = parseRawConfig()
+  if (parsed.error || !parsed.data) {
+    notify(t('toast.validationError', { message: parsed.error || '-' }), 'error')
+    return
+  }
+  rawConfigText.value = JSON.stringify(parsed.data, null, 2)
+}
+
+const reloadRuntime = async () => {
+  try {
+    const response = await reloadDeviceRuntime()
+    if (response.state === 0) {
+      if (response.message) {
+        notify(response.message)
+      }
+      return true
+    }
+
+    notify(t('toast.loadFailed', { message: response.message || '-' }), 'error')
+    return false
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error)
+    notify(t('toast.connectionError', { message: text }), 'error')
+    return false
+  }
+}
+
+const loadConfig = async (hotReload = false) => {
   loading.value = true
-  logger.info('app', 'load config start')
+  logger.info('app', 'load config start', { hotReload })
 
   try {
+    if (hotReload) {
+      const ok = await reloadRuntime()
+      if (!ok) {
+        return
+      }
+    }
+
     const response = await fetchDeviceConfig()
     if (response.state === 0 && response.data) {
       setConfig(response.data)
+      rawConfigText.value = JSON.stringify(response.data, null, 2)
       logger.info('app', 'load config apply success', {
         channels: channels.value.length,
         nodes: nodes.value.length,
@@ -126,14 +213,68 @@ const loadConfig = async () => {
   }
 }
 
+const saveRawConfig = async () => {
+  const parsed = parseRawConfig()
+  if (parsed.error || !parsed.data) {
+    notify(t('toast.validationError', { message: parsed.error || '-' }), 'error')
+    return
+  }
+
+  saving.value = true
+  logger.info('app', 'save raw config start')
+
+  try {
+    const response = await saveDeviceConfig(parsed.data as unknown as DeviceConfig)
+    if (response.state === 0) {
+      const reloadOk = await reloadRuntime()
+      if (!reloadOk) {
+        notify(t('toast.saveFailed', { message: 'saved, but hot reload failed' }), 'error')
+        return
+      }
+
+      await loadConfig()
+      logger.info('app', 'save raw config success')
+      refreshLastSync()
+      notify(t('toast.saved'))
+      return
+    }
+
+    logger.warn('app', 'save raw config failed by state', {
+      state: response.state,
+      message: response.message
+    })
+    notify(t('toast.saveFailed', { message: response.message || '-' }), 'error')
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error)
+    logger.error('app', 'save raw config exception', { error: text })
+    notify(t('toast.connectionError', { message: text }), 'error')
+  } finally {
+    saving.value = false
+    logger.info('app', 'save raw config end')
+  }
+}
+
 const saveConfig = async () => {
+  if (activePage.value === 'raw') {
+    await saveRawConfig()
+    return
+  }
+
   saving.value = true
   logger.info('app', 'save config start')
 
   try {
     const response = await saveDeviceConfig(toPayload())
     if (response.state === 0) {
+      const reloadOk = await reloadRuntime()
+      if (!reloadOk) {
+        notify(t('toast.saveFailed', { message: 'saved, but hot reload failed' }), 'error')
+        return
+      }
+
+      await loadConfig()
       logger.info('app', 'save config success')
+      syncRawFromStructured()
       refreshLastSync()
       notify(t('toast.saved'))
       return
@@ -157,15 +298,47 @@ const saveConfig = async () => {
 const updateChannels = (value: Channel[]) => {
   logger.info('app', 'update channels', { count: value.length })
   channels.value = value
+  syncRawFromStructured()
   void preloadChannelSchemas()
 }
 
 const updateNodes = (value: NodeItem[]) => {
   nodes.value = value
+  syncRawFromStructured()
 }
 
 const updateScenes = (value: Scene[]) => {
   scenes.value = value
+  syncRawFromStructured()
+}
+
+const updateWebPort = (value: number) => {
+  webServer.value.port = value
+  syncRawFromStructured()
+}
+
+const updateWebServer = (value: WebServerConfig) => {
+  webServer.value = value
+  syncRawFromStructured()
+}
+
+const updateFileConfig = (value: FileConfig) => {
+  fileConfig.value = value
+  syncRawFromStructured()
+}
+
+const updateDatabaseConfig = (value: DatabaseConfig) => {
+  databaseConfig.value = value
+  syncRawFromStructured()
+}
+
+const updateResourceConfig = (value: ResourceConfig) => {
+  resourceConfig.value = value
+  syncRawFromStructured()
+}
+
+const updateRawConfigText = (value: string) => {
+  rawConfigText.value = value
 }
 
 onMounted(async () => {
@@ -196,7 +369,7 @@ onMounted(async () => {
             :loading="loading"
             @change-page="activePage = $event"
             @save="saveConfig"
-            @reload="loadConfig"
+            @reload="() => loadConfig(true)"
           />
         </el-aside>
 
@@ -212,7 +385,7 @@ onMounted(async () => {
                 <div class="top-actions">
                   <el-tag effect="light" type="success">{{ t('common.online') }}</el-tag>
                   <el-tag effect="plain">{{ t('app.lastSync', { time: lastSyncText }) }}</el-tag>
-                  <el-button :loading="loading" @click="loadConfig">{{ t('common.reload') }}</el-button>
+                  <el-button :loading="loading" @click="loadConfig(true)">{{ t('common.reload') }}</el-button>
                   <el-button type="primary" :loading="saving" @click="saveConfig">{{ t('common.save') }}</el-button>
                 </div>
               </div>
@@ -241,7 +414,7 @@ onMounted(async () => {
                 :scenes-count="stats.scenes"
                 :protocol-count="protocolList.length"
                 :web-port="webServer.port"
-                @update:web-port="(v) => { webServer.port = v }"
+                @update:web-port="updateWebPort"
               />
               <ChannelsPage
                 v-if="activePage === 'channels'"
@@ -275,10 +448,19 @@ onMounted(async () => {
                 :file-config="fileConfig"
                 :database-config="databaseConfig"
                 :resource-config="resourceConfig"
-                @update:web-server="(v) => webServer = v"
-                @update:file-config="(v) => fileConfig = v"
-                @update:database-config="(v) => databaseConfig = v"
-                @update:resource-config="(v) => resourceConfig = v"
+                @update:web-server="updateWebServer"
+                @update:file-config="updateFileConfig"
+                @update:database-config="updateDatabaseConfig"
+                @update:resource-config="updateResourceConfig"
+              />
+
+              <RawConfigPage
+                v-if="activePage === 'raw'"
+                :content="rawConfigText"
+                :parse-error="rawConfigError"
+                @update:content="updateRawConfigText"
+                @format="formatRawConfig"
+                @apply="applyRawConfig"
               />
             </section>
           </el-main>

@@ -55,6 +55,6 @@ export interface DeviceConfig {
   resource?: ResourceConfig
 }
 
-export type PageKey = 'overview' | 'channels' | 'nodes' | 'scenes' | 'settings'
+export type PageKey = 'overview' | 'channels' | 'nodes' | 'scenes' | 'settings' | 'raw'
 
 export type ToastType = 'success' | 'error'

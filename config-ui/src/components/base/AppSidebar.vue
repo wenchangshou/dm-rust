@@ -51,6 +51,12 @@ const navItems = computed(() => [
     label: t('sidebar.settings') || 'Settings',
     count: null,
     icon: 'Setting'
+  },
+  {
+    key: 'raw' as const,
+    label: 'Raw JSON',
+    count: null,
+    icon: 'EditPen'
   }
 ])
 

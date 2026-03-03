@@ -44,3 +44,18 @@ export async function saveDeviceConfig(payload: DeviceConfig) {
   })
   return result
 }
+
+export async function reloadDeviceRuntime() {
+  logger.info('configApi', 'reload runtime config start', { url: '/lspcapi/config/reload' })
+  const response = await fetch('/lspcapi/config/reload', {
+    method: 'POST'
+  })
+  const result = (await response.json()) as ApiResponse<{ requires_restart?: boolean; port_changed?: boolean }>
+  logger.info('configApi', 'reload runtime config done', {
+    httpStatus: response.status,
+    state: result.state,
+    message: result.message,
+    requiresRestart: result.data?.requires_restart ?? false
+  })
+  return result
+}

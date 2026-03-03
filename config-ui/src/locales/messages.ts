@@ -41,6 +41,7 @@ export const messages: Record<LocaleCode, Messages> = {
       channels: '通道管理',
       nodes: '设备节点',
       scenes: '场景编排',
+      settings: '通用配置',
       language: '语言',
       chinese: '中文',
       english: 'English',
@@ -60,7 +61,7 @@ export const messages: Record<LocaleCode, Messages> = {
       loaded: '配置加载成功',
       loadFailed: '加载失败：{{message}}',
       connectionError: '连接异常：{{message}}',
-      saved: '配置已保存，重启服务后生效',
+      saved: '配置已保存并热重载',
       saveFailed: '保存失败：{{message}}',
       validationError: '校验失败：{{message}}'
     },
@@ -187,7 +188,7 @@ export const messages: Record<LocaleCode, Messages> = {
       executionScenesMissing: '未找到场景配置'
     },
     settings: {
-      title: '通用设置',
+      title: '通用配置',
       desc: '管理系统核心组件、上传限制及外围中间件依赖。',
       webServer: 'Web 服务器',
       webPort: '监听端口',
@@ -260,7 +261,7 @@ export const messages: Record<LocaleCode, Messages> = {
       loaded: 'Configuration loaded',
       loadFailed: 'Load failed: {{message}}',
       connectionError: 'Connection error: {{message}}',
-      saved: 'Saved. Restart service to apply changes',
+      saved: 'Saved and hot reloaded',
       saveFailed: 'Save failed: {{message}}',
       validationError: 'Validation failed: {{message}}'
     },
